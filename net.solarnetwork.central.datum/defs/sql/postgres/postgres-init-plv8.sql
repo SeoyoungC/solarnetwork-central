@@ -28,15 +28,19 @@ this.sn = {
  *                   then 1 is assumed.
  * @param {Object} c An optional "counter" object, whose <code>k</code> property will be incremented
  *                   by 1 if defined, or set to 1 if not.
+ * @param {Object} r An optional "stats" object, whose <code>k</code> property will be maintained
+ *                   as a nested object with <code>min</code> and <code>max</code> properties.
  */
-this.sn.math.util.addto = function(k, v, o, p, c) {
+this.sn.math.util.addto = function(k, v, o, p, c, r) {
+	var newVal;
 	if ( p === undefined ) {
 		p = 1;
 	}
+	newVal = (v * p);
 	if ( o[k] === undefined ) {
-		o[k] = (v * p);
+		o[k] = newVal;
 	} else {
-		o[k] += (v * p);
+		o[k] += newVal;
 	}
 	if ( c ) {
 		if ( c[k] === undefined ) {
@@ -45,11 +49,27 @@ this.sn.math.util.addto = function(k, v, o, p, c) {
 			c[k] += 1;
 		}
 	}
+	if ( r ) {
+		if ( r[k] === undefined ) {
+			r[k] = { min: newVal, max: newVal };
+		} else {
+			if ( r[k].min === undefined ) {
+				r[k].min = newVal;
+			} else if ( newVal < r[k].min ) {
+				r[k].min = newVal;
+			}
+			if ( r[k].max === undefined ) {
+				r[k].max = newVal;
+			} else if ( newVal > r[k].max ) {
+				r[k].max = newVal;
+			}
+		}
+	}
 };
 
 /**
  * Calculate an average of two values projected over 1 hour.
- * 
+ *
  * @param {Number} w     The first value.
  * @param {Number} prevW The previous value, which will be subtracted from <code>w</code>.
  * @param {Number} milli The difference in time between the two values, in milliseconds.
@@ -84,7 +104,7 @@ this.sn.math.util.fixPrecision = function(val, amt) {
  * {@link #sn.math.util.addto} function. The keys of <code>obj</code> are iterated over
  * and for any corresponding key in <code>counts</code> the value in <code>obj</code>
  * will be divided by the value in <code>counts</code>.
- * 
+ *
  * @param {Object} obj       The object whose Number property values are dividends.
  * @param {Object} counts    The object whose Number property values are divisors.
  * @param {Number} precision An optional precision to pass to {@link sn.math.util.fixPrecision}
@@ -122,7 +142,7 @@ this.sn.math.util.calculateAverages = function(obj, counts, precision) {
  */
 this.sn.util.merge = function(result, obj) {
 	var prop;
-	if ( obj ) {	
+	if ( obj ) {
 		for ( prop in obj ) {
 			if ( obj.hasOwnProperty(prop) ) {
 				result[prop] = sn.math.util.fixPrecision(obj[prop]);
