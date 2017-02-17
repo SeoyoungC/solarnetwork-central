@@ -89,6 +89,13 @@ test('datum:datumAggregate:processRecords:15m:trailingFraction', t => {
 
 	t.deepEqual(aggResult.jdata.i, {foo:15, foo_min:13, foo_max:17});
 	t.deepEqual(aggResult.jdata.a, {bar:16.667}, '2/3 of last record\'s accumulation counts towards this result');
+
+	// verify call to startNext()
+	var next = service.startNext(endTs, endTs + (15 * 60 * 1000));
+	t.is(next.sourceId, sourceId);
+	aggResult = next.finish();
+	t.deepEqual(aggResult.jdata.i, {foo:19});
+	t.deepEqual(aggResult.jdata.a, {bar:3.333}, '1/3 of previous record\'s accumulation counts towards next result');
 });
 
 test('datum:datumAggregate:processRecords:15m:leadingFraction', t => {
@@ -143,6 +150,13 @@ test('datum:datumAggregate:processRecords:15m:leadingAndTrailingFractions', t =>
 
 	t.deepEqual(aggResult.jdata.i, {foo:15, foo_min:13, foo_max:17});
 	t.deepEqual(aggResult.jdata.a, {bar:18.333}, '1/6 of first; 2/3 of last record\'s accumulation counts towards this result');
+
+	// verify call to startNext()
+	var next = service.startNext(endTs, endTs + (15 * 60 * 1000));
+	t.is(next.sourceId, sourceId);
+	aggResult = next.finish();
+	t.deepEqual(aggResult.jdata.i, {foo:19});
+	t.deepEqual(aggResult.jdata.a, {bar:3.333}, '1/3 of previous record\'s accumulation counts towards next result');
 });
 
 test('datum:datumAggregate:processRecords:15m:endWithinSlot', t => {

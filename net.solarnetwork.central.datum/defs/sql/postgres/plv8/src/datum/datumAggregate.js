@@ -60,11 +60,13 @@ function addTo(k, v, o, p, c, r) {
  * An aggregate record object that helps keep track of the raw data needed to
  * calculate a single aggregate result from many input records.
  *
- * @param {String} sourceId The source ID.
- * @param {Number} ts       The timestamp associated with this aggregate result.
- * @param {Number} endTs    The timestamp (exclusive) of the end of this aggregate result.
+ * @param {String} sourceId    The source ID.
+ * @param {Number} ts          The timestamp associated with this aggregate result (e.g. time slot).
+ * @param {Number} endTs       The timestamp (exclusive) of the end of this aggregate result (e.g. next time slot).
+ * @param {Number} toleranceMs The number of milliseconds tolerance before/after time slot to allow calculating
+ *                             accumulating values from.
  */
-export default function datumAggregate(sourceId, ts, endTs) {
+export default function datumAggregate(sourceId, ts, endTs, toleranceMs) {
 	var self = {
 		version : '1'
 	};
@@ -76,6 +78,7 @@ export default function datumAggregate(sourceId, ts, endTs) {
 	var tarr = [];
 	var accAvg = {};
 	var prevRecord;
+	var finishRecord;
 
 	function addInstantaneousValues(inst) {
 		var prop;
@@ -208,7 +211,10 @@ export default function datumAggregate(sourceId, ts, endTs) {
 
 		// handle any fractional portion of the next record
 		if ( nextRecord ) {
+			finishRecord = prevRecord;
 			addDatumRecord(nextRecord);
+			prevRecord = finishRecord;
+			finishRecord = nextRecord;
 		}
 
 		// calculate our instantaneous average values
@@ -235,17 +241,36 @@ export default function datumAggregate(sourceId, ts, endTs) {
 		return aggRecord
 	}
 
+	/**
+	 * Create a new aggregate based on the configured properties of this object
+	 * and a new time slot. If a record was passed to <code>finishRecord()</code>
+	 * then the record previous to that one, and that one, will be automatically
+	 * added to the new aggregate.
+	 *
+	 * @param {Number} nextTs     The timestamp associated with the new aggregate result.
+	 * @param {Number} nextEndTs  The timestamp (exclusive) of the end of the new aggregate result.
+	 *
+	 * @returns {Object} A new <code>datumAggregate</code> object.
+	 */
 	function startNext(nextTs, nextEndTs) {
-		var result = datumAggregate(sourceId, nextTs, nextEndTs);
-
+		var result = datumAggregate(sourceId, nextTs, nextEndTs, toleranceMs);
+		if ( finishRecord ) {
+			if ( prevRecord ) {
+				result.addDatumRecord(prevRecord);
+			}
+			result.addDatumRecord(finishRecord);
+		}
+		return result;
 	}
 
 	return Object.defineProperties(self, {
 		sourceId			: { value : sourceId },
 		ts					: { value : ts },
 		endTs				: { value : endTs },
+		toleranceMs			: { value : toleranceMs },
 
 		addDatumRecord		: { value : addDatumRecord },
 		finish				: { value : finish },
+		startNext			: { value : startNext },
 	});
 }
