@@ -144,3 +144,58 @@ test('datum:datumAggregate:processRecords:15m:leadingAndTrailingFractions', t =>
 	t.deepEqual(aggResult.jdata.i, {foo:15, foo_min:13, foo_max:17});
 	t.deepEqual(aggResult.jdata.a, {bar:18.333}, '1/6 of first; 2/3 of last record\'s accumulation counts towards this result');
 });
+
+test('datum:datumAggregate:processRecords:15m:endWithinSlot', t => {
+	const slotTs = 1476050400000;
+	const endTs = slotTs + (15 * 60 * 1000);
+	const sourceId = 'Foo';
+	const service = datumAggregate(sourceId, slotTs, endTs);
+	t.is(service.sourceId, sourceId);
+	t.is(service.ts, slotTs);
+	t.is(service.endTs, endTs);
+
+	const data = parseDatumCSV('/find-datum-for-minute-time-slots-05.csv');
+
+	var aggResult;
+	data.forEach(rec => {
+		service.addDatumRecord(rec);
+	});
+
+	// note call to finish() here, as data ended in middle of slot
+	aggResult = service.finish();
+
+
+	t.is(aggResult.source_id, sourceId);
+	t.is(aggResult.ts_start.getTime(), slotTs);
+
+	t.deepEqual(aggResult.jdata.i, {foo:15, foo_min:13, foo_max:17});
+	t.deepEqual(aggResult.jdata.a, {bar:10});
+});
+
+test('datum:datumAggregate:processRecords:15m:noPreviousSlot', t => {
+	const slotTs = 1476050400000;
+	const endTs = slotTs + (15 * 60 * 1000);
+	const sourceId = 'Foo';
+	const service = datumAggregate(sourceId, slotTs, endTs);
+	t.is(service.sourceId, sourceId);
+	t.is(service.ts, slotTs);
+	t.is(service.endTs, endTs);
+
+	const data = parseDatumCSV('/find-datum-for-minute-time-slots-06.csv');
+
+	var aggResult;
+	data.forEach(rec => {
+		if ( rec.ts_start.getTime() < endTs ) {
+			service.addDatumRecord(rec);
+		} else {
+			aggResult = service.finish(rec);
+		}
+	});
+
+	t.is(aggResult.source_id, sourceId);
+	t.is(aggResult.ts_start.getTime(), slotTs);
+
+	t.deepEqual(aggResult.jdata.i, {foo:15, foo_min:13, foo_max:17});
+	t.deepEqual(aggResult.jdata.a, {bar:20});
+});
+
