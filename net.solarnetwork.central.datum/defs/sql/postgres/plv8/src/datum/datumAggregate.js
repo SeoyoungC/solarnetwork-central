@@ -159,7 +159,7 @@ export default function datumAggregate(sourceId, ts, endTs) {
 		if ( !(record && record.jdata) ) {
 			return;
 		}
-		var recTs = record.tsms,
+		var recTs = record.ts_start.getTime(),
 			accu = record.jdata.a,
 			inst = record.jdata.i,
 			stat = record.jdata.s,
