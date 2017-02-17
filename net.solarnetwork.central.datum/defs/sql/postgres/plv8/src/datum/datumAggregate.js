@@ -1,6 +1,7 @@
 'use strict';
 
 import calculateAverages from '../math/calculateAverages.js'
+import mergeObjects from '../util/mergeObjects.js'
 
 /**
  * Add a number value to an object at a specific key, limited to a percentage value.
@@ -100,6 +101,53 @@ export default function datumAggregate(sourceId, ts, endTs) {
 		}
 	}
 
+	function addAccumulatingValues(accu, recTs, recDate) {
+		var percent = 1,
+			recTime = recDate.getTime(),
+			prevRecTime,
+			prevAccu,
+			prop;
+
+		if ( recTs < ts || !prevRecord ) {
+			// this record is from before our time slot or no previous record yet; no accumulation yet
+			return;
+		}
+
+		prevRecTime = prevRecord.ts.getTime();
+
+		if ( recTime > endTs ) {
+			// this record is from after our time slot; accumulate leading fractional values
+			percent = ((endTs - prevRecTime) / (recTime - prevRecTime));
+		} else if ( prevRecTime < ts ) {
+			// this is the first record in our time slot, following another in the previous slot;
+			// accumulate trailing fractional values
+			percent = ((recTime - ts) / (recTime - prevRecTime));
+		}
+
+		if ( !(percent > 0) ) {
+			return;
+		}
+
+		prevAccu = prevRecord.jdata.a;
+
+		if ( !prevAccu ) {
+			return;
+		}
+
+		for ( prop in accu ) {
+			addTo(prop, calculateAccumulatingValue(accu[prop], prevAccu[prop]), aobj, percent);
+		}
+	}
+
+	function calculateAccumulatingValue(val, prevVal) {
+		// TODO: port extra logic for handling common data errors
+		if ( prevVal === undefined || val === undefined ) {
+			return 0;
+		}
+		var diff = (val - prevVal);
+		return diff;
+	}
+
 	/**
 	 * Add another datum record.
 	 *
@@ -112,6 +160,7 @@ export default function datumAggregate(sourceId, ts, endTs) {
 			return;
 		}
 		var recTs = record.tsms,
+			accu = record.jdata.a,
 			inst = record.jdata.i,
 			stat = record.jdata.s,
 			tags = record.jdata.t;
@@ -135,7 +184,7 @@ export default function datumAggregate(sourceId, ts, endTs) {
 			}
 		}
 
-		// TODO: handle accumulating values
+		addAccumulatingValues(accu, recTs, record.ts);
 
 		// save curr record as previous for future calculations
 		prevRecord = record;
@@ -180,8 +229,8 @@ export default function datumAggregate(sourceId, ts, endTs) {
 			}
 		}
 
-		// TODO add accumulating results via merge() to pick fixPrecision() values
-		//aggRecord.jdata.a = merge({}, aobj);
+		// add accumulating results via merge() to pick fixPrecision() values
+		aggRecord.jdata.a = mergeObjects({}, aobj);
 
 		return aggRecord
 	}
