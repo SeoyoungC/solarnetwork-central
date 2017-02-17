@@ -64,12 +64,13 @@ function addTo(k, v, o, p, c, r) {
  * @param {Number} ts          The timestamp associated with this aggregate result (e.g. time slot).
  * @param {Number} endTs       The timestamp (exclusive) of the end of this aggregate result (e.g. next time slot).
  * @param {Number} toleranceMs The number of milliseconds tolerance before/after time slot to allow calculating
- *                             accumulating values from.
+ *                             accumulating values from. Defaults to 3600000.
  */
 export default function datumAggregate(sourceId, ts, endTs, toleranceMs) {
 	var self = {
 		version : '1'
 	};
+	var tolMs = (toleranceMs !== undefined ? toleranceMs : 3600000);
 	var aobj = {};
 	var iobj = {};
 	var iobjCounts = {};
@@ -159,9 +160,10 @@ export default function datumAggregate(sourceId, ts, endTs, toleranceMs) {
 	 * @param {Object} record[jdata] The datum JSON data object.
 	 */
 	function addDatumRecord(record) {
-		if ( !(record && record.jdata) ) {
+		if ( !(record && record.jdata && record.ts_start && record.ts) ) {
 			return;
 		}
+
 		var recTs = record.ts_start.getTime(),
 			accu = record.jdata.a,
 			inst = record.jdata.i,
@@ -211,9 +213,15 @@ export default function datumAggregate(sourceId, ts, endTs, toleranceMs) {
 
 		// handle any fractional portion of the next record
 		if ( nextRecord ) {
-			finishRecord = prevRecord;
-			addDatumRecord(nextRecord);
-			prevRecord = finishRecord;
+			// only add if the next record is not too far into the future from the last record
+			if ( prevRecord && nextRecord.ts.getTime() < prevRecord.ts.getTime() + tolMs ) {
+				// calling addDatumRecord will update prevRecord, so keep a reference to the current value
+				finishRecord = prevRecord;
+				addDatumRecord(nextRecord);
+				prevRecord = finishRecord;
+			} else {
+				prevRecord = undefined;
+			}
 			finishRecord = nextRecord;
 		}
 
@@ -253,7 +261,7 @@ export default function datumAggregate(sourceId, ts, endTs, toleranceMs) {
 	 * @returns {Object} A new <code>datumAggregate</code> object.
 	 */
 	function startNext(nextTs, nextEndTs) {
-		var result = datumAggregate(sourceId, nextTs, nextEndTs, toleranceMs);
+		var result = datumAggregate(sourceId, nextTs, nextEndTs, tolMs);
 		if ( finishRecord ) {
 			if ( prevRecord ) {
 				result.addDatumRecord(prevRecord);
@@ -267,7 +275,7 @@ export default function datumAggregate(sourceId, ts, endTs, toleranceMs) {
 		sourceId			: { value : sourceId },
 		ts					: { value : ts },
 		endTs				: { value : endTs },
-		toleranceMs			: { value : toleranceMs },
+		toleranceMs			: { value : tolMs },
 
 		addDatumRecord		: { value : addDatumRecord },
 		finish				: { value : finish },

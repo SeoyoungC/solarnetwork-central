@@ -10,6 +10,7 @@ function parseDatumCSV(filename) {
 	var records = csvParse(data, {
 			auto_parse : true,
 			columns : true,
+			comment : '#',
 		});
 	var i, record;
 	for ( i = 0; i < records.length; i+= 1 ) {
@@ -96,6 +97,41 @@ test('datum:datumAggregate:processRecords:15m:trailingFraction', t => {
 	aggResult = next.finish();
 	t.deepEqual(aggResult.jdata.i, {foo:19});
 	t.deepEqual(aggResult.jdata.a, {bar:3.333}, '1/3 of previous record\'s accumulation counts towards next result');
+});
+
+test('datum:datumAggregate:processRecords:15m:trailingPastTolerance', t => {
+	const slotTs = 1476050400000;
+	const endTs = slotTs + (15 * 60 * 1000);
+	const sourceId = 'Foo';
+	const service = datumAggregate(sourceId, slotTs, endTs);
+	t.is(service.sourceId, sourceId);
+	t.is(service.ts, slotTs);
+	t.is(service.endTs, endTs);
+
+	const data = parseDatumCSV('/find-datum-for-minute-time-slots-02a.csv');
+
+	var aggResult;
+	data.forEach(rec => {
+		if ( rec.ts_start.getTime() < endTs ) {
+			service.addDatumRecord(rec);
+		} else {
+			aggResult = service.finish(rec);
+		}
+	});
+
+	t.is(aggResult.source_id, sourceId);
+	t.is(aggResult.ts_start.getTime(), slotTs);
+
+	t.deepEqual(aggResult.jdata.i, {foo:15, foo_min:13, foo_max:17});
+	t.deepEqual(aggResult.jdata.a, {bar:10}, 'last record past tolerance so does not contribute');
+
+	// verify call to startNext()
+	var nextTs = moment('2016-10-10 13:15:00+13').toDate().getTime();
+	var next = service.startNext(nextTs, nextTs + (15 * 60 * 1000));
+	t.is(next.sourceId, sourceId);
+	aggResult = next.finish();
+	t.deepEqual(aggResult.jdata.i, {foo:19});
+	t.deepEqual(aggResult.jdata.a, {}, 'no previous record to accumulate from');
 });
 
 test('datum:datumAggregate:processRecords:15m:leadingFraction', t => {
