@@ -83,6 +83,7 @@ test('datum:slotAggregator:processRecords:15mWithGaps', t => {
 		startTs : start.valueOf(),
 		endTs : end.valueOf(),
 		slotSecs : 900,
+		hourFill : {foo:'fooHours'},
 	});
 
 	const data = parseDatumCSV('/find-datum-for-minute-time-slots-10.csv');
@@ -97,9 +98,12 @@ test('datum:slotAggregator:processRecords:15mWithGaps', t => {
 	aggResults = aggResults.concat(service.finish());
 
 	var expected = [
-		{ ts_start: moment('2016-10-10 11:00:00+13').toDate(), source_id: 'Foo', jdata: {i: {foo:15, foo_min:13, foo_max:17}, a: {bar:18.333}}},
-		{ ts_start: moment('2016-10-10 11:15:00+13').toDate(), source_id: 'Foo', jdata: {i: {foo:20, foo_min:19, foo_max:21}, a: {bar:13.333}}},
-		{ ts_start: moment('2016-10-10 12:30:00+13').toDate(), source_id: 'Foo',  jdata: {i: {foo:15, foo_min:13, foo_max:17}, a: {bar:30}}},
+		{ ts_start: moment('2016-10-10 11:00:00+13').toDate(), source_id: 'Foo',
+			jdata: {i: {foo:15, foo_min:13, foo_max:17}, a: {bar:18.333, fooHours:3.767}}},
+		{ ts_start: moment('2016-10-10 11:15:00+13').toDate(), source_id: 'Foo',
+			jdata: {i: {foo:20, foo_min:19, foo_max:21}, a: {bar:13.333, fooHours:1.267}}},
+		{ ts_start: moment('2016-10-10 12:30:00+13').toDate(), source_id: 'Foo',
+			jdata: {i: {foo:15, foo_min:13, foo_max:17}, a: {bar:30, fooHours:2.167}}},
 	];
 
 	t.deepEqual(aggResults, expected);
