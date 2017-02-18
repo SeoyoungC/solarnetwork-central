@@ -28,6 +28,10 @@ export default function slotAggregator(configuration) {
 	 * @param {Object} record The record to add.
 	 * @param {String} record[source_id] The source ID of the datum.
 	 * @param {Object} record[jdata] The datum JSON data object.
+	 *
+	 * @returns {Object} If <code>record</code> is associated with a new time slot, then
+	 *                   an aggregate object will be returned for the data accumulated in
+	 *                   the previous slot.
 	 */
 	function addDatumRecord(record) {
 		if ( !(record || record.source_id) ) {
