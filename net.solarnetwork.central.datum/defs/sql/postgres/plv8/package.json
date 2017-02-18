@@ -10,9 +10,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "prebuild:dev": "rm -rf tmp && mkdir tmp;",
-    "build:dev": "./node_modules/rollup/bin/rollup src/main.js --config rollup.config.js --output dist/${npm_package_name}.js",
-    "build:global": "./node_modules/rollup/bin/rollup src/global.js --config rollup.config.js --output dist/${npm_package_name}-global.js",
-    "build:test:global": "./node_modules/rollup/bin/rollup src/global.js --config rollup.config.js --format cjs --output test/global.js",
+    "build:global": "./node_modules/rollup/bin/rollup src/global.js --config rollup.config.global.js --output dist/${npm_package_name}-global.sql",
     "test": "ava"
   },
   "ava": {
