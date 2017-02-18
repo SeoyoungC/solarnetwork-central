@@ -36,7 +36,7 @@ export default function slotAggregator(configuration) {
 	 *                   the previous slot.
 	 */
 	function addDatumRecord(record) {
-		if ( !(record || record.source_id) ) {
+		if ( !(record || record.source_id || record.ts_start) ) {
 			return;
 		}
 		var sourceId = record.source_id;
