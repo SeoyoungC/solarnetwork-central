@@ -35,7 +35,7 @@ test('datum:datumAggregate:processRecords:15m:1', t => {
 	const slotTs = 1476046800000;
 	const endTs = slotTs + (15 * 60 * 1000);
 	const sourceId = 'Foo';
-	const service = datumAggregate(sourceId, slotTs, endTs);
+	const service = datumAggregate(sourceId, slotTs, endTs, {hourFill:{foo:'fooHours'}});
 	t.is(service.sourceId, sourceId);
 	t.is(service.ts, slotTs);
 	t.is(service.endTs, endTs);
@@ -55,7 +55,7 @@ test('datum:datumAggregate:processRecords:15m:1', t => {
 	t.is(aggResult.ts_start.getTime(), slotTs);
 
 	t.deepEqual(aggResult.jdata.i, {foo:2, foo_min:1, foo_max:3});
-	t.deepEqual(aggResult.jdata.a, {bar:25});
+	t.deepEqual(aggResult.jdata.a, {bar:25, fooHours:0.625});
 });
 
 test('datum:datumAggregate:processRecords:15m:trailingFraction', t => {

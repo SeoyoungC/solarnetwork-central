@@ -13,7 +13,6 @@ test('datum:slotAggregator:createWithoutConfig', t => {
 	t.true(service.startTs >= now);
 	t.true(service.endTs >= now);
 	t.is(service.slotSecs, 600);
-	t.is(service.toleranceMs, 3600000);
 });
 
 test('datum:slotAggregator:createWithEmptyConfig', t => {
@@ -22,7 +21,6 @@ test('datum:slotAggregator:createWithEmptyConfig', t => {
 	t.true(service.startTs >= now);
 	t.true(service.endTs >= now);
 	t.is(service.slotSecs, 600);
-	t.is(service.toleranceMs, 3600000);
 });
 
 test('datum:slotAggregator:createWithStartTs', t => {
@@ -38,11 +36,6 @@ test('datum:slotAggregator:createWithEndTs', t => {
 test('datum:slotAggregator:createWithSlotSecs', t => {
 	const service = slotAggregator({ slotSecs : 900 });
 	t.is(service.slotSecs, 900);
-});
-
-test('datum:slotAggregator:createWithToleranceMs', t => {
-	const service = slotAggregator({ toleranceMs : 123 });
-	t.is(service.toleranceMs, 123);
 });
 
 test('datum:slotAggregator:processRecords:15m', t => {

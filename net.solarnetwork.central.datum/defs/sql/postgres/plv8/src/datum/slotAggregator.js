@@ -16,9 +16,6 @@ export default function slotAggregator(configuration) {
 	/** The number of seconds per time slot. */
 	var slotSecs = (configuration && configuration.slotSecs > 0 ? configuration.slotSecs : 600);
 
-	/** The number of milliseconds tolerance before/after time span to allow finding prev/next records */
-	var toleranceMs = (configuration && configuration.toleranceMs > 0 ? configuration.toleranceMs : 3600000);
-
 	/** A mapping of source ID -> array of objects. */
 	var resultsBySource = {};
 
@@ -49,7 +46,7 @@ export default function slotAggregator(configuration) {
 				// allow leading data outside of overall time span (for accumulating calculations)
 				ts = startTs;
 			}
-			currResult = datumAggregate(sourceId, ts, ts + (slotSecs * 1000), toleranceMs);
+			currResult = datumAggregate(sourceId, ts, ts + (slotSecs * 1000), configuration);
 			currResult.addDatumRecord(record);
 			resultsBySource[sourceId] = currResult;
 		} else if ( ts !== currResult.ts ) {
@@ -90,7 +87,7 @@ export default function slotAggregator(configuration) {
 		startTs				: { value : startTs },
 		endTs				: { value : endTs },
 		slotSecs			: { value : slotSecs },
-		toleranceMs			: { value : toleranceMs },
+		configuration		: { value : configuration },
 
 		addDatumRecord		: { value : addDatumRecord },
 		finish				: { value : finish },

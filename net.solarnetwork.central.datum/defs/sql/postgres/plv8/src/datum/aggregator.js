@@ -15,9 +15,6 @@ export default function aggregator(configuration) {
 	/** The overall ending timestamp. */
 	var endTs = (configuration && configuration.endTs > 0 ? configuration.endTs : new Date().getTime());
 
-	/** The number of milliseconds tolerance before/after time span to allow finding prev/next records */
-	var toleranceMs = (configuration && configuration.toleranceMs > 0 ? configuration.toleranceMs : 3600000);
-
 	/** A mapping of source ID -> array of objects. */
 	var resultsBySource = {};
 
@@ -42,7 +39,7 @@ export default function aggregator(configuration) {
 		var recToAdd = record;
 
 		if ( currResult === undefined ) {
-			currResult = datumAggregate(sourceId, startTs, endTs, toleranceMs);
+			currResult = datumAggregate(sourceId, startTs, endTs, configuration);
 
 			// keep track of results by source ID for fast lookup
 			resultsBySource[sourceId] = currResult;
@@ -81,7 +78,7 @@ export default function aggregator(configuration) {
 	return Object.defineProperties(self, {
 		startTs				: { value : startTs },
 		endTs				: { value : endTs },
-		toleranceMs			: { value : toleranceMs },
+		configuration		: { value : configuration },
 
 		addDatumRecord		: { value : addDatumRecord },
 		finish				: { value : finish },

@@ -12,7 +12,6 @@ test('datum:aggregator:createWithoutConfig', t => {
 	const service = aggregator();
 	t.true(service.startTs >= now);
 	t.true(service.endTs >= now);
-	t.is(service.toleranceMs, 3600000);
 });
 
 test('datum:aggregator:createWithEmptyConfig', t => {
@@ -20,7 +19,6 @@ test('datum:aggregator:createWithEmptyConfig', t => {
 	const service = aggregator({});
 	t.true(service.startTs >= now);
 	t.true(service.endTs >= now);
-	t.is(service.toleranceMs, 3600000);
 });
 
 test('datum:aggregator:createWithStartTs', t => {
@@ -31,11 +29,6 @@ test('datum:aggregator:createWithStartTs', t => {
 test('datum:aggregator:createWithEndTs', t => {
 	const service = aggregator({ endTs : 321 });
 	t.is(service.endTs, 321);
-});
-
-test('datum:aggregator:createWithToleranceMs', t => {
-	const service = aggregator({ toleranceMs : 123 });
-	t.is(service.toleranceMs, 123);
 });
 
 test('datum:aggregator:processRecords:1h', t => {

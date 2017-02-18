@@ -1,8 +1,11 @@
 'use strict';
 
 import calculateAverages from '../math/calculateAverages.js'
+import calculateAverageOverHours from '../math/calculateAverageOverHours.js'
 import addTo from '../util/addTo.js'
 import mergeObjects from '../util/mergeObjects.js'
+
+var kDefaultHourFill = {watts: 'wattHours'};
 
 /**
  * An aggregate record object that helps keep track of the raw data needed to
@@ -29,7 +32,7 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 	var toleranceMs = (configuration && configuration.toleranceMs !== undefined ? configuration.toleranceMs : 3600000);
 
 	/** A mapping of instantaneous datum property keys to associated accumulating property keys that should be derived.  */
-	var hourFill = 	(configuration && configuration.hourFill !== undefined ? configuration.hourFill : {'watts' : 'wattHours'});
+	var hourFill = 	(configuration && configuration.hourFill !== undefined ? configuration.hourFill : kDefaultHourFill);
 
 	var aobj = {};
 	var iobj = {};
@@ -86,11 +89,13 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 		}
 	}
 
-	function addAccumulatingValues(accu, recTs, recDate) {
+	function addAccumulatingValues(accu, inst, recTs, recDate) {
 		var percent = 1,
 			recTime = recDate.getTime(),
+			recTimeDiff = 0,
 			prevRecTime,
 			prevAccu,
+			prevInst,
 			prop;
 
 		if ( recTs < ts || !prevRecord ) {
@@ -99,28 +104,37 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 		}
 
 		prevRecTime = prevRecord.ts.getTime();
+		recTimeDiff = recTime - prevRecTime;
 
 		if ( recTime > endTs ) {
 			// this record is from after our time slot; accumulate leading fractional values
-			percent = ((endTs - prevRecTime) / (recTime - prevRecTime));
+			percent = ((endTs - prevRecTime) / recTimeDiff);
 		} else if ( prevRecTime < ts ) {
 			// this is the first record in our time slot, following another in the previous slot;
 			// accumulate trailing fractional values
-			percent = ((recTime - ts) / (recTime - prevRecTime));
+			percent = ((recTime - ts) / recTimeDiff);
 		}
 
 		if ( !(percent > 0) ) {
 			return;
 		}
 
+		// calculate accumulating values
 		prevAccu = prevRecord.jdata.a;
-
-		if ( !prevAccu ) {
-			return;
+		if ( prevAccu ) {
+			for ( prop in accu ) {
+				addTo(prop, calculateAccumulatingValue(accu[prop], prevAccu[prop]), aobj, percent);
+			}
 		}
 
-		for ( prop in accu ) {
-			addTo(prop, calculateAccumulatingValue(accu[prop], prevAccu[prop]), aobj, percent);
+		// handle any accumulating values derived from instantaneous (via hourFill)
+		prevInst = prevRecord.jdata.i;
+		if ( prevInst ) {
+			for ( prop in hourFill ) {
+				if ( accu[prop] === undefined && inst[prop] !== undefined && prevInst[prop] !== undefined ) {
+					addTo(hourFill[prop], calculateAverageOverHours(inst[prop], prevInst[prop], recTimeDiff), aobj, percent);
+				}
+			}
 		}
 	}
 
@@ -172,7 +186,7 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 			}
 		}
 
-		addAccumulatingValues(accu, recTs, record.ts);
+		addAccumulatingValues(accu, inst, recTs, record.ts);
 
 		// save curr record as previous for future calculations
 		prevRecord = record;
@@ -244,7 +258,7 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 	 * @returns {Object} A new <code>datumAggregate</code> object.
 	 */
 	function startNext(nextTs, nextEndTs) {
-		var result = datumAggregate(sourceId, nextTs, nextEndTs, toleranceMs);
+		var result = datumAggregate(sourceId, nextTs, nextEndTs, configuration);
 		if ( finishRecord ) {
 			if ( prevRecord ) {
 				result.addDatumRecord(prevRecord);
