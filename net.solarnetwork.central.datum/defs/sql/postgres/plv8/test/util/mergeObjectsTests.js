@@ -18,8 +18,18 @@ test('util:mergeObjects:customPrecision', t => {
 	t.deepEqual(result, {a:1.2});
 });
 
+test('util:mergeObjects:nullPrecision', t => {
+	const result = mergeObjects({}, {a:1.23456789}, null);
+	t.deepEqual(result, {a:1.23456789});
+});
+
 test('util:mergeObjects:nonNumberValues', t => {
 	const src = {a:'foo', b:[1,2,3], c:{see:'there'}};
 	const result = mergeObjects({}, src);
 	t.deepEqual(result, src);
+});
+
+test('util:mergeObjects:keepExisting', t => {
+	const result = mergeObjects({a:'foo'}, {a:1.2345, b:2.3456}, 1000, true);
+	t.deepEqual(result, {a:'foo', b:2.346});
 });
