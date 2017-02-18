@@ -9,6 +9,26 @@ test('datum:datumAggregate:create', t => {
 	t.is(service.sourceId, 'Foo');
 	t.is(service.ts, 123);
 	t.is(service.endTs, 234);
+	t.is(service.toleranceMs, 3600000);
+	t.deepEqual(service.hourFill, {watts: 'wattHours'});
+});
+
+test('datum:datumAggregate:createWithTolerance', t => {
+	const service = datumAggregate('Foo', 123, 234, {toleranceMs:345});
+	t.is(service.sourceId, 'Foo');
+	t.is(service.ts, 123);
+	t.is(service.endTs, 234);
+	t.is(service.toleranceMs, 345);
+});
+
+test('datum:datumAggregate:createWithHourFill', t => {
+	const hf = {foo: 'bar'};
+	const service = datumAggregate('Foo', 123, 234, {hourFill:hf});
+	t.is(service.sourceId, 'Foo');
+	t.is(service.ts, 123);
+	t.is(service.endTs, 234);
+	t.is(service.toleranceMs, 3600000);
+	t.deepEqual(service.hourFill, hf);
 });
 
 test('datum:datumAggregate:processRecords:15m:1', t => {
