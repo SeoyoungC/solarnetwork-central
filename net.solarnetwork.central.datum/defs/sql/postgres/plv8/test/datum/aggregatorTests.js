@@ -38,7 +38,7 @@ test('datum:aggregator:createWithToleranceMs', t => {
 	t.is(service.toleranceMs, 123);
 });
 
-test('datum:aggregator:processRecords:15m', t => {
+test('datum:aggregator:processRecords:1h', t => {
 	const start = moment('2016-10-10 10:00:00+13');
 	const end = start.clone().add(1, 'hour');
 	const service = aggregator({
