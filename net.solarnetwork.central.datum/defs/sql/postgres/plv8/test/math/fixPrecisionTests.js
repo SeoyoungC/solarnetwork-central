@@ -29,6 +29,12 @@ test('math:fixPrecision:default', t => {
 	t.is(v.toString(), '1.123');
 });
 
+test('math:fixPrecision:nullAmount', t => {
+	const v = fixPrecision(1.123456789, null);
+	t.is(v, 1.123456789);
+	t.is(v.toString(), '1.123456789');
+});
+
 test('math:fixPrecision:negative', t => {
 	const v = fixPrecision(-1.123456789);
 	t.is(v, -1.123);
