@@ -25,9 +25,11 @@ export default function slotAggregator(configuration) {
 	/**
 	 * Add another datum record.
 	 *
-	 * @param {Object} record The record to add.
-	 * @param {String} record[source_id] The source ID of the datum.
-	 * @param {Object} record[jdata] The datum JSON data object.
+	 * @param {Object} record            The record to add.
+	 * @param {Date}   record[ts]        The datum timestamp.
+	 * @param {Date}   record[ts_start]  The datum time slot.
+	 * @param {String} record[source_id] The datum source ID.
+	 * @param {Object} record[jdata]     The datum JSON data object.
 	 *
 	 * @returns {Object} If <code>record</code> is associated with a new time slot, then
 	 *                   an aggregate object will be returned for the data accumulated in

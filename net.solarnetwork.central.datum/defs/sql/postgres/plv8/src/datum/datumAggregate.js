@@ -155,9 +155,11 @@ export default function datumAggregate(sourceId, ts, endTs, toleranceMs) {
 	/**
 	 * Add another datum record.
 	 *
-	 * @param {Object} record The record to add.
-	 * @param {String} record[source_id] The source ID of the datum.
-	 * @param {Object} record[jdata] The datum JSON data object.
+	 * @param {Object} record            The record to add.
+	 * @param {Date}   record[ts]        The datum timestamp.
+	 * @param {Date}   record[ts_start]  The datum time slot.
+	 * @param {String} record[source_id] The datum source ID.
+	 * @param {Object} record[jdata]     The datum JSON data object.
 	 */
 	function addDatumRecord(record) {
 		if ( !(record && record.jdata && record.ts_start && record.ts) ) {
