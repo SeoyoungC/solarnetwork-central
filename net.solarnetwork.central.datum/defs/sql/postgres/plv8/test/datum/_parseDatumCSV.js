@@ -8,6 +8,7 @@ export default function parseDatumCSV(filename) {
 			auto_parse : true,
 			columns : true,
 			comment : '#',
+			skip_empty_lines : true,
 		});
 	var i, record;
 	for ( i = 0; i < records.length; i+= 1 ) {

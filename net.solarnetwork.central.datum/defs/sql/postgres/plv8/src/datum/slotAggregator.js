@@ -67,6 +67,25 @@ export default function slotAggregator(configuration) {
 		return aggResult;
 	}
 
+	/**
+	 * Finish all aggregate processing and return an array of any remaining aggregate records.
+	 *
+	 * @return {Array} An array of aggregate record objects, or an empty array if there aren't any.
+	 */
+	function finish() {
+		var remainingAggregateResults = [];
+		var result, prop, aggResult;
+		for ( prop in resultsBySource ) {
+			result = resultsBySource[prop];
+			aggResult = result.finish();
+			if ( aggResult ) {
+				remainingAggregateResults.push(aggResult);
+			}
+			delete resultsBySource[prop];
+		}
+		return remainingAggregateResults;
+	}
+
 	return Object.defineProperties(self, {
 		startTs				: { value : startTs },
 		endTs				: { value : endTs },
@@ -74,5 +93,6 @@ export default function slotAggregator(configuration) {
 		toleranceMs			: { value : toleranceMs },
 
 		addDatumRecord		: { value : addDatumRecord },
+		finish				: { value : finish },
 	});
 }
