@@ -1,4 +1,4 @@
-var intervalMsStms;
+var intervalMsStmt;
 
 /**
  * Convert an interval string into milliseconds.
@@ -7,10 +7,10 @@ var intervalMsStms;
  * @returns {Number} The millisecond value, or <em>null</em> if could not be converted.
  */
 export default function intervalMs(intervalValue) {
-	if ( intervalMsStms === undefined ) {
-		intervalMsStms = plv8.prepare('SELECT EXTRACT(EPOCH FROM $1::interval)', ['text']);
+	if ( intervalMsStmt === undefined ) {
+		intervalMsStmt = plv8.prepare('SELECT EXTRACT(EPOCH FROM $1::interval)', ['text']);
 	}
-	var secs = intervalMsStms.execute([intervalValue]);
+	var secs = intervalMsStmt.execute([intervalValue]);
 	if ( secs.length > 0 && secs[0].date_part !== undefined ) {
 		return secs[0].date_part * 1000;
 	}
