@@ -124,7 +124,7 @@ test('datum:datumAggregate:processRecords:15m:trailingPastTolerance', t => {
 	t.is(next.sourceId, sourceId);
 	aggResult = next.finish();
 	t.deepEqual(aggResult.jdata.i, {foo:19});
-	t.deepEqual(aggResult.jdata.a, {}, 'no previous record to accumulate from');
+	t.truthy(aggResult.jdata.a === undefined, 'no previous record to accumulate from');
 });
 
 test('datum:datumAggregate:processRecords:15m:leadingFraction', t => {

@@ -47,7 +47,7 @@ test('datum:slotAggregator:processRecords:15m', t => {
 		slotSecs : 900,
 	});
 
-	const data = parseDatumCSV('/find-datum-for-minute-time-slots-01.csv');
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-01.csv');
 
 	var aggResults = [];
 	data.forEach(rec => {
@@ -76,6 +76,33 @@ test('datum:slotAggregator:processRecords:15m', t => {
 
 });
 
+test('datum:slotAggregator:processRecords:15mOnlyAdjacentRows', t => {
+	const start = moment('2016-10-10 12:00:00+13');
+	const end = start.clone().add(1, 'hour');
+	const service = slotAggregator({
+		startTs : start.valueOf(),
+		endTs : end.valueOf(),
+		slotSecs : 900,
+		hourFill : {foo:'fooHours'},
+	});
+
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-07.csv');
+
+	var aggResults = [];
+	data.forEach(rec => {
+		var aggResult = service.addDatumRecord(rec);
+		if ( aggResult ) {
+			aggResults.push(aggResult);
+		}
+	});
+	aggResults = aggResults.concat(service.finish());
+
+	var expected = [
+	];
+
+	t.deepEqual(aggResults, expected);
+});
+
 test('datum:slotAggregator:processRecords:15mWithGaps', t => {
 	const start = moment('2016-10-10 11:00:00+13');
 	const end = start.clone().add(2, 'hour');
@@ -86,7 +113,7 @@ test('datum:slotAggregator:processRecords:15mWithGaps', t => {
 		hourFill : {foo:'fooHours'},
 	});
 
-	const data = parseDatumCSV('/find-datum-for-minute-time-slots-10.csv');
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-10.csv');
 
 	var aggResults = [];
 	data.forEach(rec => {

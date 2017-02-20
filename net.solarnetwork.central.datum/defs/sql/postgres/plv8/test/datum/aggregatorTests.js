@@ -62,3 +62,28 @@ test('datum:aggregator:processRecords:1h', t => {
 
 });
 
+test('datum:aggregator:processRecords:onlyAdjacentRows', t => {
+	const start = moment('2016-10-10 12:00:00+13');
+	const end = start.clone().add(1, 'hour');
+	const service = aggregator({
+		startTs : start.valueOf(),
+		endTs : end.valueOf(),
+	});
+
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-07.csv');
+
+	var aggResults = [];
+	data.forEach(rec => {
+		var aggResult = service.addDatumRecord(rec);
+		if ( aggResult ) {
+			aggResults.push(aggResult);
+		}
+	});
+	aggResults = aggResults.concat(service.finish());
+
+	var expected = [
+	];
+
+	t.deepEqual(aggResults, expected);
+});
+
