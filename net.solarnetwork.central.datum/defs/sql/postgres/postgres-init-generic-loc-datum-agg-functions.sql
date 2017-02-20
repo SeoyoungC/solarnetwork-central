@@ -96,59 +96,39 @@ BEGIN
 END;$BODY$
   LANGUAGE plpgsql VOLATILE;
 
+
 /**
- * Find rows in the <b>solardatum.da_loc_datum</b> table necessary to calculate an hour or more level of
- * aggregate data for a specific duration of time, loc, and set of sources. This function will return
- * all available rows within the specified duration, possibly with some rows <em>before</em> or
- * <em>after</em> the duration to enable calculating the actual aggregate over the duration.
- * Each returned row contains a <b>percent</b> value of 0 - 1 that represents the percentage
- * of time that row falls within the specified duration.
+ * Find matching location datum rows for aggregation purposes across a specific time
+ * span. The query can return adjacent rows before or after the given span so that
+ * accumulating values can be calculated from the results.
  *
- * @param loc The ID of the loc to search for.
- * @param sources An array of one or more source IDs to search for, any of which may match.
- * @param start_ts The start time of the desired time duration.
- * @param span The interval of the time duration, which starts from <b>start_ts</b>.
- * @param tolerance An interval representing the maximum amount of time before between, and after
- *                  rows with the same source ID are allowed to be considered <em>consecutive</em>
- *                  for the purposes of calculating the overall aggregate of the time duration.
- * @out ts The <b>solardatum.da_loc_datum.ts</b> value.
- * @out source_id The <b>solardatum.da_loc_datum.source_id</b> value.
- * @out tsms The <b>solardatum.da_loc_datum.ts</b> value represented as milliseconds since the Unix epoch.
- * @out percent The percent of time this row falls within the specified time duration, from 0 to 1.
- * @out tdiffms The number of milliseconds between this row and the next earliest consecutive row
- *              (i.e. with a matching <b>source_id</b>).
- * @out jdata The <b>solardatum.da_loc_datum.jdata</b> value.
- * @returns one or more rows of aggregated data
+ * @param loc				location ID
+ * @param sources			array of source IDs
+ * @param start_ts			the start timestamp
+ * @param span				the length of time from start_ts to use as the end timestamp
+ * @param tolerance			the number of milliseconds tolerance before/after span to
+ *                          look for adjacent rows
  */
-CREATE OR REPLACE FUNCTION solaragg.find_loc_datum_for_time_slot(
-	IN loc bigint,
-	IN sources text[],
-	IN start_ts timestamp with time zone,
-	IN span interval,
-	IN tolerance interval DEFAULT interval '1 hour')
-  RETURNS TABLE(ts timestamp with time zone, source_id text, tsms bigint, percent real, tdiffms bigint, jdata json) AS
+CREATE OR REPLACE FUNCTION solaragg.find_loc_datum_for_time_span(
+    IN loc bigint,
+    IN sources text[],
+    IN start_ts timestamp with time zone,
+    IN span interval,
+    IN tolerance interval DEFAULT '01:00:00'::interval)
+  RETURNS TABLE(ts timestamp with time zone, source_id text, jdata json) AS
 $BODY$
-SELECT * FROM (
+SELECT sub.ts, sub.source_id, sub.jdata FROM (
+	-- subselect filters out "extra" leading/lagging rows from results
 	SELECT
 		d.ts,
 		d.source_id,
-		CAST(EXTRACT(EPOCH FROM d.ts) * 1000 AS BIGINT) as tsms,
 		CASE
 			WHEN lead(d.ts) over win < start_ts OR lag(d.ts) over win > (start_ts + span)
-				THEN -1::real
-			WHEN d.ts < start_ts
-				THEN 0::real
-			WHEN d.ts > (start_ts + span) AND lag(d.ts) over win IS NULL
-				THEN 0::real
-			WHEN d.ts > (start_ts + span)
-				THEN (1.0::real - EXTRACT('epoch' FROM (d.ts - (start_ts + span))) / EXTRACT('epoch' FROM (d.ts - lag(d.ts) over win)))::real
-			WHEN lag(d.ts) over win < start_ts
-				THEN (EXTRACT('epoch' FROM (d.ts - start_ts)) / EXTRACT('epoch' FROM (d.ts - lag(d.ts) over win)))::real
-			ELSE 1::real
-		END AS percent,
-		COALESCE(CAST(EXTRACT(EPOCH FROM d.ts - lag(d.ts) over win) * 1000 AS BIGINT), 0) as tdiff,
+				THEN TRUE
+			ELSE FALSE
+		END AS outside,
 		d.jdata as jdata
-	FROM solardatum.da_loc_datum d
+	FROM solardatum.da_datum d
 	WHERE d.loc_id = loc
 		AND d.source_id = ANY(sources)
 		AND d.ts >= start_ts - tolerance
@@ -157,80 +137,26 @@ SELECT * FROM (
 	ORDER BY d.ts, d.source_id
 ) AS sub
 WHERE
-	sub.percent > -1
+	sub.outside = FALSE
 $BODY$
   LANGUAGE sql STABLE;
+
 
 /**
- * Find rows in the <b>solardatum.da_loc_datum</b> table necessary to calculate minute-level aggregate
- * data for a specific duration of time, loc, and set of sources. This function will return
- * all available rows within the specified duration, possibly with some rows <em>before</em> or
- * <em>after</em> the duration to enable calculating the actual aggregate over the duration.
- * All rows are assigned to <b>slotsecs</b> second time slots, and contain a <b>percent</b>
- * value of 0 - 1 that represents the percentage of time that row falls within the specified
- * time slot.
+ * Dynamically calculate time slot aggregate values for a location and set of source IDs.
+ * If <code>slotsecs</code> is between 60 and 1800 then the the results will include
+ * corresponding minute-level time slots per source ID. Otherwise at most a single
+ * row per source ID will be returned.
  *
- * @param loc The ID of the loc to search for.
- * @param sources An array of one or more source IDs to search for, any of which may match.
- * @param start_ts The start time of the desired time duration.
- * @param span The interval of the time duration, which starts from <b>start_ts</b>.
- * @param slotsecs The number of seconds per minute time slot to assign output rows to. Must be
- *                 between 60 and 1800 and evenly divide into 1800.
- * @param tolerance An interval representing the maximum amount of time before between, and after
- *                  rows with the same source ID are allowed to be considered <em>consecutive</em>
- *                  for the purposes of calculating the overall aggregate of the time duration.
- * @out ts The <b>solardatum.da_loc_datum.ts</b> value.
- * @out ts_start The minute-level timestamp.
- * @out source_id The <b>solardatum.da_loc_datum.source_id</b> value.
- * @out tsms The <b>solardatum.da_loc_datum.ts</b> value represented as milliseconds since the Unix epoch.
- * @out percent The percent of time this row falls within the specified time duration, from 0 to 1.
- * @out tdiffms The number of milliseconds between this row and the next earliest consecutive row
- *              (i.e. with a matching <b>source_id</b>).
- * @out jdata The <b>solardatum.da_loc_datum.jdata</b> value.
- * @returns one or more rows of aggregated data
+ * @param loc				location ID
+ * @param sources			array of source IDs
+ * @param start_ts			the start timestamp
+ * @param span				the length of time from start_ts to use as the end timestamp
+ * @param slotsecs			the number of seconds per time slot, between 60 and 1800, e.g.
+ *                          600 == 10 minutes (the default), 0 == disable
+ * @param tolerance			the number of milliseconds tolerance before/after time slots to
+ *                          look for adjacent rows
  */
-CREATE OR REPLACE FUNCTION solaragg.find_loc_datum_for_minute_time_slots(
-	IN loc bigint,
-	IN sources text[],
-	IN start_ts timestamp with time zone,
-	IN span interval,
-	IN slotsecs integer DEFAULT 600,
-	IN tolerance interval DEFAULT interval '1 hour')
-  RETURNS TABLE(ts timestamp with time zone, ts_start timestamp with time zone, source_id text, tsms bigint, percent real, tdiffms bigint, jdata json) AS
-$BODY$
-SELECT * FROM (
-	SELECT
-		d.ts,
-		solaragg.minute_time_slot(d.ts, slotsecs) as ts_start,
-		d.source_id,
-		CAST(EXTRACT(EPOCH FROM solaragg.minute_time_slot(d.ts, slotsecs)) * 1000 AS BIGINT) as tsms,
-		CASE
-			WHEN lead(d.ts) over win < start_ts OR lag(d.ts) over win > (start_ts + span)
-				THEN -1::real
-			WHEN d.ts < start_ts
-				THEN 0::real
-			WHEN d.ts > (start_ts + span) AND lag(d.ts) over win IS NULL
-				THEN 0::real
-			WHEN solaragg.minute_time_slot(lag(d.ts) over win, slotsecs) < solaragg.minute_time_slot(d.ts, slotsecs)
-					AND EXTRACT('epoch' FROM d.ts - lag(d.ts) over win) < slotsecs
-				THEN (1::real - EXTRACT('epoch' FROM solaragg.minute_time_slot(d.ts, slotsecs) - lag(d.ts) over win) / EXTRACT('epoch' FROM d.ts - lag(d.ts) over win))::real
-			ELSE 1::real
-		END AS percent,
-		COALESCE(CAST(EXTRACT(EPOCH FROM d.ts - lag(d.ts) over win) * 1000 AS BIGINT), 0) as tdiff,
-		d.jdata as jdata
-	FROM solardatum.da_loc_datum d
-	WHERE d.loc_id = loc
-		AND d.source_id = ANY(sources)
-		AND d.ts >= start_ts - tolerance
-		AND d.ts <= start_ts + span + tolerance
-	WINDOW win AS (PARTITION BY d.source_id ORDER BY d.ts)
-	ORDER BY d.ts, d.source_id
-) AS sub
-WHERE
-	sub.percent > -1
-$BODY$
-  LANGUAGE sql STABLE;
-
 CREATE OR REPLACE FUNCTION solaragg.calc_loc_datum_time_slots(
 	IN loc bigint,
 	IN sources text[],
@@ -238,248 +164,67 @@ CREATE OR REPLACE FUNCTION solaragg.calc_loc_datum_time_slots(
 	IN span interval,
 	IN slotsecs integer DEFAULT 600,
 	IN tolerance interval DEFAULT interval '1 hour')
-  RETURNS TABLE(ts_start timestamp with time zone, source_id text, jdata json)  LANGUAGE plv8 AS
+  RETURNS TABLE(ts_start timestamp with time zone, source_id text, jdata json) LANGUAGE plv8 AS
 $BODY$
 'use strict';
-var runningAvgDiff,
-	runningAvgMax = 5,
-	toleranceMs = sn.util.intervalMs(tolerance),
-	hourFill = {'watts' : 'wattHours'},
-	slotMode = (slotsecs > 0 && slotsecs < 3600),
-	ignoreLogMessages = (slotMode === true || sn.util.intervalMs(span) !== 3600000),
-	logInsertStmt;
 
-function logMessage(nodeId, sourceId, ts, msg) {
-	if ( ignoreLogMessages ) {
-		return;
-	}
-	var msg;
-	if ( !logInsertStmt ) {
-		logInsertStmt = plv8.prepare('INSERT INTO solaragg.agg_loc_messages (loc_id, source_id, ts, msg) VALUES ($1, $2, $3, $4)',
-			['bigint', 'text', 'timestamp with time zone', 'text']);
-	}
-	var dbMsg = Array.prototype.slice.call(arguments, 3).join(' ');
-	logInsertStmt.execute([nodeId, sourceId, ts, dbMsg]);
+var intervalMs = require('util/intervalMs').default;
+var aggregator = require('datum/aggregator').default;
+var slotAggregator = require('datum/slotAggregator').default;
+
+var spanMs = intervalMs(span),
+	endTs = start_ts.getTime() + spanMs,
+	slotMode = (slotsecs >= 60 && slotsecs <= 1800),
+	ignoreLogMessages = (slotMode === true || spanMs !== 3600000),
+	stmt,
+	cur,
+	rec,
+	helper,
+	aggResult,
+	i;
+
+if ( slotMode ) {
+	stmt = plv8.prepare(
+		'SELECT ts, solaragg.minute_time_slot(ts, '+slotsecs+') as ts_start, source_id, jdata FROM solaragg.find_loc_datum_for_time_span($1, $2, $3, $4, $5)',
+		['bigint', 'text[]', 'timestamp with time zone', 'interval', 'interval']);
+	helper = slotAggregator({
+		startTs : start_ts.getTime(),
+		endTs : endTs,
+		slotsecs : slotsecs
+	});
+} else {
+	stmt = plv8.prepare(
+		'SELECT ts, source_id, jdata FROM solaragg.find_loc_datum_for_time_span($1, $2, $3, $4, $5)',
+		['bigint', 'text[]', 'timestamp with time zone', 'interval', 'interval']);
+	helper = aggregator({
+		startTs : start_ts.getTime(),
+		endTs : endTs,
+	});
 }
 
-function calculateAccumulatingValue(rec, r, val, prevVal, prop, ms) {
-	var avgObj = r.accAvg[prop],
-		diff,
-		diffT,
-		minutes;
-	diff = (val - prevVal);
-	minutes = ms / 60000;
-	diffT = (diff / minutes);
-	maintainAccumulatingRunningAverageDifference(r.accAvg, prop, diffT)
-	return diff;
-}
+cur = stmt.cursor([loc, sources, start_ts, span, tolerance]);
 
-function maintainAccumulatingRunningAverageDifference(accAvg, prop, diff) {
-	var i,
-		avg = 0,
-		avgObj = accAvg[prop],
-		val,
-		samples;
-	if ( avgObj === undefined ) {
-		avgObj = { samples : new Array(runningAvgMax), average : diff, next : 1 }; // wanted Float32Array, but not available in plv8
-		avgObj.samples[0] = diff;
-		for ( i = 1; i < runningAvgMax; i += 1 ) {
-			avgObj.samples[i] = 0x7FC00000;
-		}
-		accAvg[prop] = avgObj;
-		avg = diff;
-	} else {
-		samples = avgObj.samples;
-		samples[avgObj.next % runningAvgMax] = diff;
-		avgObj.next += 1;
-		for ( i = 0; i < runningAvgMax; i += 1 ) {
-			val = samples[i];
-			if ( val === 0x7FC00000 ) {
-				break;
-			}
-			avg += val;
-		}
-		avg /= i;
-		avgObj.average = avg;
+while ( rec = cur.fetch() ) {
+	if ( !rec.jdata ) {
+		continue;
+	}
+	aggResult = helper.addDatumRecord(rec);
+	if ( aggResult ) {
+		plv8.return_next(aggResult);
+	}
+}
+aggResult = helper.finish();
+if ( Array.isArray(aggResult) ) {
+	for ( i = 0; i < aggResult.length; i += 1 ) {
+		plv8.return_next(aggResult[i]);
 	}
 }
 
-function finishResultObject(r, endts) {
-	var prop,
-		robj,
-		ri,
-		riStats = r.iobjStats,
-		ra;
-	if ( r.tsms < start_ts.getTime() || (slotMode && r.tsms >= endts) ) {
-		// not included in output because before time start, or end time >= end time
-		return;
-	}
-	robj = {
-		ts_start : new Date(r.tsms),
-		source_id : r.source_id,
-		jdata : {}
-	};
-	ri = sn.math.util.calculateAverages(r.iobj, r.iobjCounts);
-	ra = r.aobj;
+cur.close();
+stmt.free();
 
-	for ( prop in ri ) {
-		if ( robj.jdata.i === undefined ) {
-			robj.jdata.i = ri;
-		}
-		if ( riStats[prop] !== undefined ) {
-			if ( riStats[prop].min !== undefined && riStats[prop].min !== ri[prop] ) {
-				ri[prop+'_min'] = riStats[prop].min;
-			}
-			if ( riStats[prop].max !== undefined && riStats[prop].max !== ri[prop] ) {
-				ri[prop+'_max'] = riStats[prop].max;
-			}
-		}
-	}
-	for ( prop in ra ) {
-		robj.jdata.a = sn.util.merge({}, ra); // call merge() to pick up sn.math.util.fixPrecision
-		break;
-	}
-
-	if ( r.prevRec && r.prevRec.percent > 0 ) {
-		// merge last record s obj into results, but not overwriting any existing properties
-		if ( r.prevRec.jdata.s ) {
-			for ( prop in r.prevRec.jdata.s ) {
-				robj.jdata.s = r.prevRec.jdata.s;
-				break;
-			}
-		}
-		if ( Array.isArray(r.prevRec.jdata.t) && r.prevRec.jdata.t.length > 0 ) {
-			robj.jdata.t = r.prevRec.jdata.t;
-		}
-	}
-	plv8.return_next(robj);
-}
-
-function handleAccumulatingResult(rec, result) {
-	var acc = rec.jdata.a,
-		prevAcc = result.prevAcc,
-		aobj = result.aobj,
-		prop;
-	if ( acc && prevAcc && rec.tdiffms <= toleranceMs ) {
-		// accumulating data
-		for ( prop in acc ) {
-			if ( prevAcc[prop] !== undefined ) {
-				sn.math.util.addto(prop, calculateAccumulatingValue(rec, result, acc[prop], prevAcc[prop], prop, rec.tdiffms), aobj, rec.percent);
-			}
-		}
-	}
-}
-
-function handleInstantaneousResult(rec, result, onlyHourFill) {
-	var inst = rec.jdata.i,
-		prevInst = result.prevInst,
-		iobj = result.iobj,
-		iobjCounts = result.iobjCounts,
-		iobjStats = result.iobjStats,
-		prop,
-		propHour;
-	if ( inst && rec.percent > 0 && rec.tdiffms <= toleranceMs ) {
-		// instant data
-		for ( prop in inst ) {
-			if ( onlyHourFill !== true ) {
-				// only add instantaneous average values for 100% records; we may have to use percent to hour-fill below
-				sn.math.util.addto(prop, inst[prop], iobj, 1, iobjCounts, iobjStats);
-			}
-			if ( result.prevRec && hourFill[prop] ) {
-				// calculate hour value, if not already defined for given property
-				propHour = hourFill[prop];
-				if ( !(rec.jdata.a && rec.jdata.a[propHour]) && prevInst && prevInst[prop] !== undefined ) {
-					sn.math.util.addto(propHour, sn.math.util.calculateAverageOverHours(inst[prop], prevInst[prop], rec.tdiffms), result.aobj, rec.percent);
-				}
-			}
-		}
-	}
-}
-
-function handleFractionalAccumulatingResult(rec, result) {
-	var fracRec = {
-		source_id 	: rec.source_id,
-		tsms		: result.prevRec.tsms,
-		percent		: (1 - rec.percent),
-		tdiffms		: rec.tdiffms,
-		jdata		: rec.jdata
-	};
-	handleAccumulatingResult(fracRec, result);
-	handleInstantaneousResult(fracRec, result, true);
-}
-
-(function() {
-	var results = {}, // { ts_start : 123, source_id : 'A', aobj : {}, iobj : {}, iobjCounts : {}, sobj : {} ...}
-		sourceId,
-		result,
-		rec,
-		prop,
-		stmt,
-		cur,
-		spanMs = sn.util.intervalMs(span),
-		endts = start_ts.getTime() + spanMs;
-
-	if ( slotMode ) {
-		stmt = plv8.prepare('SELECT source_id, tsms, percent, tdiffms, jdata FROM solaragg.find_loc_datum_for_minute_time_slots($1, $2, $3, $4, $5, $6)',
-				['bigint', 'text[]', 'timestamp with time zone', 'interval', 'integer', 'interval']);
-		cur = stmt.cursor([loc, sources, start_ts, span, slotsecs, tolerance]);
-	} else {
-		stmt = plv8.prepare('SELECT source_id, tsms, percent, tdiffms, jdata FROM solaragg.find_loc_datum_for_time_slot($1, $2, $3, $4, $5)',
-				['bigint', 'text[]', 'timestamp with time zone', 'interval', 'interval']);
-		cur = stmt.cursor([loc, sources, start_ts, span, tolerance]);
-	}
-
-	while ( rec = cur.fetch() ) {
-		if ( !rec.jdata ) {
-			continue;
-		}
-		sourceId = rec.source_id;
-		result = results[sourceId];
-		if ( result === undefined ) {
-			result = {
-				tsms : (slotMode ? rec.tsms : start_ts.getTime()),
-				source_id : sourceId,
-				aobj : {},
-				iobj : {},
-				iobjCounts : {},
-				iobjStats : {},
-				sobj: {},
-				accAvg : {}
-			};
-			results[sourceId] = result;
-		} else if ( slotMode && rec.tsms !== result.tsms ) {
-			if ( rec.percent < 1 && result.prevRec && result.prevRec.tsms >= start_ts.getTime() ) {
-				// add 1-rec.percent to the previous time slot results
-				handleFractionalAccumulatingResult(rec, result);
-			}
-			finishResultObject(result, endts);
-			result.tsms = rec.tsms;
-			result.aobj = {};
-			result.iobj = {};
-			result.iobjCounts = {};
-			result.iobjStats = {};
-			result.sobj = {};
-		}
-
-		handleAccumulatingResult(rec, result);
-		handleInstantaneousResult(rec, result);
-
-		result.prevRec = rec;
-		result.prevAcc = rec.jdata.a;
-		result.prevInst = rec.jdata.i;
-	}
-	cur.close();
-	stmt.free();
-
-	for ( prop in results ) {
-		finishResultObject(results[prop], endts);
-	}
-
-	if ( logInsertStmt ) {
-		logInsertStmt.free();
-	}
-}());
 $BODY$ STABLE;
+
 
 /**
  * Dynamically calculate minute-level time slot aggregate values for a loc and set of source IDs.
@@ -913,6 +658,9 @@ $BODY$
 		SELECT l.id as loc_id, COALESCE(l.time_zone, 'UTC') AS tz
 		FROM solarnet.sn_loc l
 		WHERE l.id = loc
+		UNION ALL
+		SELECT loc::bigint AS loc_id, 'UTC'::character varying AS tz
+		WHERE NOT EXISTS (SELECT id AS loc_id FROM solarnet.sn_loc WHERE id = loc)
 	)
 	SELECT d.ts_start, d.local_date, d.loc_id, d.source_id, d.jdata, CAST(extract(epoch from (local_date + interval '1 month') - local_date) / 3600 AS integer) AS weight
 	FROM solaragg.agg_loc_datum_monthly d
@@ -944,4 +692,40 @@ $BODY$
 		interval '1 hour')
 	INNER JOIN loctz ON loctz.loc_id = loc_id
 	ORDER BY ts_start, source_id
+$BODY$;
+
+
+/**
+ * Calculate a running average of location datum up to a specific end date. There will
+ * be at most one result row per source ID in the returned data.
+ *
+ * @param loc     The ID of the location to query for.
+ * @param sources An array of source IDs to query for.
+ * @param end_ts  An optional date to limit the results to. If not provided the current date is used.
+ */
+CREATE OR REPLACE FUNCTION solaragg.calc_running_loc_datum_total(
+	IN loc bigint,
+	IN sources text[],
+	IN end_ts timestamp with time zone DEFAULT CURRENT_TIMESTAMP)
+RETURNS TABLE(ts_start timestamp with time zone, local_date timestamp without time zone, loc_id bigint, source_id text, jdata json)
+LANGUAGE sql
+STABLE
+ROWS 10 AS
+$BODY$
+	WITH loctz AS (
+		SELECT l.id as loc_id, COALESCE(l.time_zone, 'UTC') AS tz
+		FROM solarnet.sn_loc l
+		WHERE l.id = loc
+		UNION ALL
+		SELECT loc::bigint AS loc_id, 'UTC'::character varying AS tz
+		WHERE NOT EXISTS (SELECT id AS loc_id FROM solarnet.sn_loc WHERE id = loc)
+	)
+	SELECT end_ts, end_ts AT TIME ZONE loctz.tz AS local_date, loc, r.source_id, r.jdata
+	FROM solaragg.calc_running_total(
+		loc,
+		sources,
+		end_ts,
+		TRUE
+	) AS r
+	INNER JOIN loctz ON loctz.loc_id = loc;
 $BODY$;
