@@ -35,6 +35,19 @@ $BODY$
   LANGUAGE sql STABLE;
 
 
+/**
+ * Dynamically calculate time slot aggregate values for a node and set of source IDs.
+ * If <code>slotsecs</code> is between 60 and 1800 then the the results will include
+ * corresponding minute-level time slots per source ID. Otherwise at most a single
+ * row per source ID will be returned.
+ *
+ * @param node				node ID
+ * @param sources			array of source IDs
+ * @param start_ts			the start timestamp
+ * @param span				the length of time from start_ts to use as the end timestamp
+ * @param slotsecs			the number of seconds per time slot, between 60 and 1800, e.g. 600 == 10 minutes, 0 == disable
+ * @param tolerance			the number of milliseconds tolerance before/after time slots to look for adjacent rows
+ */
 CREATE OR REPLACE FUNCTION solaragg.calc_datum_time_slots(
 	IN node bigint,
 	IN sources text[],
@@ -46,13 +59,13 @@ CREATE OR REPLACE FUNCTION solaragg.calc_datum_time_slots(
 $BODY$
 'use strict';
 
-var intervalMs = require('util/intervalMs');
-var aggregator = require('datum/aggregator');
-var slotAggregator = require('datum/slotAggregator');
+var intervalMs = require('util/intervalMs').default;
+var aggregator = require('datum/aggregator').default;
+var slotAggregator = require('datum/slotAggregator').default;
 
-var spanMs = intervalMs(spanInterval),
-	endTs = startDate.getTime() + spanMs;
-	slotMode = (slotsecs > 0 && slotsecs < 3600),
+var spanMs = intervalMs(span),
+	endTs = start_ts.getTime() + spanMs,
+	slotMode = (slotsecs >= 60 && slotsecs <= 1800),
 	ignoreLogMessages = (slotMode === true || spanMs !== 3600000),
 	stmt,
 	cur,
@@ -63,24 +76,24 @@ var spanMs = intervalMs(spanInterval),
 
 if ( slotMode ) {
 	stmt = plv8.prepare(
-		'SELECT ts, solaragg.minute_time_slot(d.ts, '+slotsecs+') as ts_start, source_id, jdata FROM solaragg.find_datum_for_time_span($1, $2, $3, $4, $5)',
+		'SELECT ts, solaragg.minute_time_slot(ts, '+slotsecs+') as ts_start, source_id, jdata FROM solaragg.find_datum_for_time_span($1, $2, $3, $4, $5)',
 		['bigint', 'text[]', 'timestamp with time zone', 'interval', 'interval']);
 	helper = slotAggregator({
-		startTs : startDate.getTime(),
+		startTs : start_ts.getTime(),
 		endTs : endTs,
-		slotSecs : slotSecs
+		slotsecs : slotsecs
 	});
 } else {
 	stmt = plv8.prepare(
 		'SELECT ts, source_id, jdata FROM solaragg.find_datum_for_time_span($1, $2, $3, $4, $5)',
 		['bigint', 'text[]', 'timestamp with time zone', 'interval', 'interval']);
 	helper = aggregator({
-		startTs : startDate.getTime(),
+		startTs : start_ts.getTime(),
 		endTs : endTs,
 	});
 }
 
-cur = stmt.cursor([nodeId, sourceIds, startDate, spanInterval, toleranceInterval]);
+cur = stmt.cursor([node, sources, start_ts, span, tolerance]);
 
 while ( rec = cur.fetch() ) {
 	if ( !rec.jdata ) {
