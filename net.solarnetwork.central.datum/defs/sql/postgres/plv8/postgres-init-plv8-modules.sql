@@ -2,6 +2,7 @@
 \i ./dist/datum/datumAggregate.sql
 \i ./dist/datum/logLocationAggregateMessage.sql
 \i ./dist/datum/logNodeAggregateMessage.sql
+\i ./dist/datum/runningTotal.sql
 \i ./dist/datum/slotAggregator.sql
 \i ./dist/math/calculateAverageOverHours.sql
 \i ./dist/math/calculateAverages.sql
