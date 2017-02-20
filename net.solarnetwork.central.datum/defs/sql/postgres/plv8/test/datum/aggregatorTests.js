@@ -42,6 +42,7 @@ test('datum:aggregator:processRecords:1h', t => {
 	const data = parseDatumCSV('/find-datum-for-minute-time-slots-01.csv');
 
 	data.forEach(rec => {
+		delete rec.ts_start; // not provided for single aggregate span
 		service.addDatumRecord(rec);
 	});
 
@@ -74,6 +75,7 @@ test('datum:aggregator:processRecords:onlyAdjacentRows', t => {
 
 	var aggResults = [];
 	data.forEach(rec => {
+		delete rec.ts_start; // not provided for single aggregate span
 		var aggResult = service.addDatumRecord(rec);
 		if ( aggResult ) {
 			aggResults.push(aggResult);
@@ -87,3 +89,34 @@ test('datum:aggregator:processRecords:onlyAdjacentRows', t => {
 	t.deepEqual(aggResults, expected);
 });
 
+test('datum:aggregator:processRecords:noTrailing', t => {
+	const start = moment('2016-10-10 11:00:00+13');
+	const end = start.clone().add(1, 'hour');
+	const service = aggregator({
+		startTs : start.valueOf(),
+		endTs : end.valueOf(),
+	});
+
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-08.csv');
+
+	var aggResults = [];
+	data.forEach(rec => {
+		delete rec.ts_start; // not provided for single aggregate span
+		var aggResult = service.addDatumRecord(rec);
+		if ( aggResult ) {
+			aggResults.push(aggResult);
+		}
+	});
+	aggResults = aggResults.concat(service.finish());
+
+	var expected = [
+		{ i: {foo:17, foo_min:13, foo_max:21}, a: {bar:25}},
+	];
+
+	aggResults.forEach((aggResult, i) => {
+		t.is(aggResult.source_id, 'Foo');
+		t.is(aggResult.ts_start.getTime(), start.valueOf(), 'start time');
+		t.deepEqual(aggResult.jdata.i, expected[i].i, 'instantaneous');
+		t.deepEqual(aggResult.jdata.a, expected[i].a, 'accumulating');
+	});
+});

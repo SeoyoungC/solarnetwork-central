@@ -25,7 +25,6 @@ export default function aggregator(configuration) {
 	 *
 	 * @param {Object} record            The record to add.
 	 * @param {Date}   record[ts]        The datum timestamp.
-	 * @param {Date}   record[ts_start]  The datum time slot.
 	 * @param {String} record[source_id] The datum source ID.
 	 * @param {Object} record[jdata]     The datum JSON data object.
 	 */
@@ -48,10 +47,10 @@ export default function aggregator(configuration) {
 			resultsByOrder.push(currResult);
 		}
 
-		if ( recTs > startTs && recTs < endTs ) {
-			// when adding records within the time span, force the time slot to our start date so they all aggregate into one
-			recToAdd = mergeObjects({ts_start:startDate}, record, undefined, true);
-		}
+		// when adding records within the time span, force the time slot to our start date so they all aggregate into one;
+		// otherwise set the time slot to the record date itself
+		recToAdd = mergeObjects({
+			ts_start: (recTs > startTs && recTs < endTs ? startDate : record.ts)}, record, undefined, true);
 
 		currResult.addDatumRecord(recToAdd);
 	}
