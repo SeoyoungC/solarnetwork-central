@@ -24,6 +24,8 @@ function load(key, source) {
 /**
  * Load a module.
  *
+ * Inspired by https://rymc.io/2016/03/22/a-deep-dive-into-plv8/.
+ *
  * @param {String} modulePath The path of the module to load. Relative path portions will be stripped
  *                            to form the final module name used to lookup a matching row in the
  *                            <code>plv8_modules</code> table.
