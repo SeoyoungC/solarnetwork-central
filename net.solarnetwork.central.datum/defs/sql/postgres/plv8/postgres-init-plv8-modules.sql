@@ -4,6 +4,7 @@
 \i ./dist/datum/logNodeAggregateMessage.sql
 \i ./dist/datum/runningTotal.sql
 \i ./dist/datum/slotAggregator.sql
+\i ./dist/datum/totalor.sql
 \i ./dist/math/calculateAverageOverHours.sql
 \i ./dist/math/calculateAverages.sql
 \i ./dist/math/fixPrecision.sql
