@@ -30,7 +30,7 @@ NOTICE:  Hello, world.
 # Load modules into database
 
 To load all modules into the database (replacing duplicates that may exist), run the
-[postgres-init-plv8-modules.sql](tree/postgres-init-plv8-modules.sql) file in `psql`,
+[postgres-init-plv8-modules.sql](postgres-init-plv8-modules.sql) file in `psql`,
 for example:
 
 	psql -U user -d dbname -f postgres-init-plv8-modules.sql
