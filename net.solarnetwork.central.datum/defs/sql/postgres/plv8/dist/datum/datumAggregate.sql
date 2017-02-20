@@ -132,7 +132,7 @@ function datumAggregate(sourceId, ts, endTs, configuration) {
 		prevInst = prevRecord.jdata.i;
 		if (prevInst) {
 			for (prop in hourFill) {
-				if (accu[prop] === undefined && inst[prop] !== undefined && prevInst[prop] !== undefined) {
+				if ((!accu || accu[prop] === undefined) && inst[prop] !== undefined && prevInst[prop] !== undefined) {
 					(0, _addTo2.default)(hourFill[prop], (0, _calculateAverageOverHours2.default)(inst[prop], prevInst[prop], recTimeDiff), aobj, percent);
 				}
 			}
