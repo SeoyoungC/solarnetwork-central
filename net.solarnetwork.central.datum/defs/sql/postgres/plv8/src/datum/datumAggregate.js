@@ -40,30 +40,8 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 	var iobjStats = {};
 	var sobj = {};
 	var tarr = [];
-	var accAvg = {};
 	var prevRecord;
 	var finishRecord;
-
-	/**
-	 * Toggle between nothern/southern hemisphere seasons, or get the current setting.
-	 *
-	 * @param {boolean} [value] <em>true</em> for northern hemisphere seasons, <em>false</em> for sothern hemisphere
-	 * @returns when used as a getter, the current setting
-	 * @memberOf sn.chart.baseGroupedSeasonalLineChart
-	 */
-	function setHourFills(value) {
-		if ( !arguments.length ) return hourFill;
-		if ( value === northernHemisphere ) {
-			return parent.me;
-		}
-		northernHemisphere = (value === true);
-
-		// immediately update path colors
-		parent.svgDataRoot.selectAll('g.season').transition().duration(parent.transitionMs())
-			.style('stroke', seasonColorFn);
-
-		return parent.me;
-	};
 
 	function addInstantaneousValues(inst) {
 		var prop;
