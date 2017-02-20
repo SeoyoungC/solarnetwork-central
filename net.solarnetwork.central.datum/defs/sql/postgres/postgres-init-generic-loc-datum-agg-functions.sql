@@ -888,3 +888,60 @@ BEGIN
 	RETURN total_result;
 END;$BODY$
   LANGUAGE plpgsql VOLATILE;
+
+
+/**
+ * Find aggregated data for a given location over all time up to an optional end date (else the current date).
+ * The purpose of this function is to find as few as possible records of already aggregated data
+ * so they can be combined into a single running total aggregate result. Each result row includes a
+ * <b>weight</b> column that represents the number of hours the given row spans. This number can be
+ * used to calculate a weighted average for all values over the entire result set.
+ *
+ * @param loc The ID of the location to query for.
+ * @param sources An array of source IDs to query for.
+ * @param end_ts An optional date to limit the results to. If not provided the current date is used.
+ */
+CREATE OR REPLACE FUNCTION solaragg.find_running_loc_datum(
+	IN loc bigint,
+	IN sources text[],
+	IN end_ts timestamp with time zone DEFAULT CURRENT_TIMESTAMP)
+RETURNS TABLE(ts_start timestamp with time zone, local_date timestamp without time zone, loc_id bigint, source_id text, jdata json, weight integer)
+LANGUAGE sql
+STABLE AS
+$BODY$
+	WITH loctz AS (
+		SELECT l.id as loc_id, COALESCE(l.time_zone, 'UTC') AS tz
+		FROM solarnet.sn_loc l
+		WHERE l.id = loc
+	)
+	SELECT d.ts_start, d.local_date, d.loc_id, d.source_id, d.jdata, CAST(extract(epoch from (local_date + interval '1 month') - local_date) / 3600 AS integer) AS weight
+	FROM solaragg.agg_loc_datum_monthly d
+	INNER JOIN loctz ON loctz.loc_id = d.loc_id
+	WHERE d.ts_start < date_trunc('month', end_ts AT TIME ZONE loctz.tz) AT TIME ZONE loctz.tz
+		AND d.source_id = ANY(sources)
+	UNION ALL
+	SELECT d.ts_start, d.local_date, d.loc_id, d.source_id, d.jdata, 24::integer as weight
+	FROM solaragg.agg_loc_datum_daily d
+	INNER JOIN loctz ON loctz.loc_id = d.loc_id
+	WHERE ts_start < date_trunc('day', end_ts AT TIME ZONE loctz.tz) AT TIME ZONE loctz.tz
+		AND d.ts_start >= date_trunc('month', end_ts AT TIME ZONE loctz.tz) AT TIME ZONE loctz.tz
+		AND d.source_id = ANY(sources)
+	UNION ALL
+	SELECT d.ts_start, d.local_date, d.loc_id, d.source_id, d.jdata, 1::INTEGER as weight
+	FROM solaragg.agg_loc_datum_hourly d
+	INNER JOIN loctz ON loctz.loc_id = d.loc_id
+	WHERE d.ts_start < date_trunc('hour', end_ts AT TIME ZONE loctz.tz) AT TIME ZONE loctz.tz
+		AND d.ts_start >= date_trunc('day', end_ts AT TIME ZONE loctz.tz) AT TIME ZONE loctz.tz
+		AND d.source_id = ANY(sources)
+	UNION ALL
+	SELECT ts_start, ts_start at time zone loctz.tz AS local_date, loctz.loc_id, source_id, jdata, 1::integer as weight
+	FROM solaragg.calc_loc_datum_time_slots(
+		loc,
+		sources,
+		date_trunc('hour', end_ts),
+		interval '1 hour',
+		0,
+		interval '1 hour')
+	INNER JOIN loctz ON loctz.loc_id = loc_id
+	ORDER BY ts_start, source_id
+$BODY$;
