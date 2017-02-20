@@ -63,7 +63,19 @@ To see more verbose output (e.g. each test that ran) you can do this:
 
 	npm run test -- --verbose
 
+To debug a single test file (and you have Chrome installed) you can
+use the [inspect][inspect-process] command. First install the required package:
+
+	npm install --global inspect-process
+
+Then, launch like this:
+
+	inspect --debug-brk ./node_modules/ava/profile.js test/myModuleTests.js
+
+
  [ava]: https://github.com/avajs/ava
  [npm]: https://www.npmjs.com/
  [plv8]: https://github.com/plv8/plv8
  [v8]: https://en.wikipedia.org/wiki/V8_(JavaScript_engine)
+ [inspect-process]: https://github.com/jaridmargolin/inspect-process
+
