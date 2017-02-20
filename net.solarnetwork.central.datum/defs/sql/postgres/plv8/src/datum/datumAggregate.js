@@ -1,9 +1,9 @@
 'use strict';
 
-import calculateAverages from '../math/calculateAverages.js'
-import calculateAverageOverHours from '../math/calculateAverageOverHours.js'
-import addTo from '../util/addTo.js'
-import mergeObjects from '../util/mergeObjects.js'
+import calculateAverages from 'math/calculateAverages'
+import calculateAverageOverHours from 'math/calculateAverageOverHours'
+import addTo from 'util/addTo'
+import mergeObjects from 'util/mergeObjects'
 
 var kDefaultHourFill = {watts: 'wattHours'};
 

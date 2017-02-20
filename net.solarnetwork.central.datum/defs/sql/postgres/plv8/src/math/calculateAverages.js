@@ -1,4 +1,4 @@
-import fixPrecision from './fixPrecision.js';
+import fixPrecision from 'math/fixPrecision';
 
 /**
  * Calculate average values of all properties of an object using "count" values from

@@ -1,7 +1,7 @@
 'use strict';
 
-import datumAggregate from './datumAggregate.js';
-import mergeObjects from '../util/mergeObjects.js'
+import datumAggregate from 'datum/datumAggregate';
+import mergeObjects from 'util/mergeObjects'
 
 export default function aggregator(configuration) {
 	var self = {

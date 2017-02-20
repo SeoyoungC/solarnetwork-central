@@ -1,6 +1,6 @@
 'use strict';
 
-import datumAggregate from './datumAggregate.js';
+import datumAggregate from 'datum/datumAggregate';
 
 export default function slotAggregator(configuration) {
 	var self = {

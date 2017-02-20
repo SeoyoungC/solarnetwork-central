@@ -1,6 +1,6 @@
 'use strict';
 
-import fixPrecision from '../math/fixPrecision.js'
+import fixPrecision from 'math/fixPrecision'
 
 /**
  * Merge one object's properties onto another object. Note that although this method returns
