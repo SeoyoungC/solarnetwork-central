@@ -125,7 +125,10 @@ function datumAggregate(sourceId, ts, endTs, configuration) {
 		prevRecTime = prevRecord.ts.getTime();
 		recTimeDiff = recTime - prevRecTime;
 
-		if (recTime > endTs) {
+		if (recTimeDiff > toleranceMs) {
+			// this record is too far away from previous record to treat as accumulating
+			percent = 0;
+		} else if (recTime > endTs) {
 			// this record is from after our time slot; accumulate leading fractional values
 			percent = (endTs - prevRecTime) / recTimeDiff;
 		} else if (prevRecTime < ts) {
@@ -259,8 +262,17 @@ function datumAggregate(sourceId, ts, endTs, configuration) {
 			}
 		}
 
-		// add accumulating results via merge() to pick fixPrecision() values
-		aggRecord.jdata.a = (0, _mergeObjects2.default)({}, aobj);
+		// use for:in as easy test for an enumerable prop
+		for (prop in aobj) {
+			// add accumulating results via merge() to pick fixPrecision() values
+			aggRecord.jdata.a = (0, _mergeObjects2.default)({}, aobj);
+			break;
+		}
+
+		if (aggRecord.jdata.i === undefined && aggRecord.jdata.a === undefined && aggRecord.jdata.s === undefined && aggRecord.jdata.t === undefined) {
+			// no data for this aggregate
+			return undefined;
+		}
 
 		return aggRecord;
 	}
