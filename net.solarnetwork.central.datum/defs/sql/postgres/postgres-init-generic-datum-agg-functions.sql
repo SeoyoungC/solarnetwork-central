@@ -150,8 +150,10 @@ END;$BODY$
  * @param sources			array of source IDs
  * @param start_ts			the start timestamp
  * @param span				the length of time from start_ts to use as the end timestamp
- * @param slotsecs			the number of seconds per time slot, between 60 and 1800, e.g. 600 == 10 minutes, 0 == disable
- * @param tolerance			the number of milliseconds tolerance before/after time slots to look for adjacent rows
+ * @param slotsecs			the number of seconds per time slot, between 60 and 1800, e.g.
+ *                          600 == 10 minutes (the default), 0 == disable
+ * @param tolerance			the number of milliseconds tolerance before/after time slots to
+ *                          look for adjacent rows
  */
 CREATE OR REPLACE FUNCTION solaragg.calc_datum_time_slots(
 	IN node bigint,
