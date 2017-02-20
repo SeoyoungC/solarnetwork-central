@@ -3,7 +3,7 @@ import sinon from 'sinon';
 
 global.plv8 = {};
 
-import intervalMs from '../../src/plv8/intervalMs';
+import intervalMs from '../../src/util/intervalMs';
 
 test.afterEach.always(t => {
 	var prop;
@@ -12,7 +12,7 @@ test.afterEach.always(t => {
 	}
 });
 
-test('plv8:intervalMs:mockCall', t => {
+test('util:intervalMs:mockCall', t => {
 	// stub our plv8 environment; we aren't actually testing against plv8 here
 	const execute = sinon.stub();
 	execute.withArgs(['01:00:00']).returns([{date_part: 3600}]);
