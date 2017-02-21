@@ -553,19 +553,16 @@ public class MyBatisGeneralLocationDatumDaoTests extends AbstractMyBatisDaoTestS
 				null, null, null);
 
 		assertNotNull(results);
-		assertEquals("Minute query results", 12L, (long) results.getTotalResults());
-		assertEquals("Minute query results", 12, (int) results.getReturnedResultCount());
+		assertEquals("Minute query results", 11L, (long) results.getTotalResults());
+		assertEquals("Minute query results", 11, (int) results.getReturnedResultCount());
 
 		int i = 0;
 		for ( ReportingGeneralLocationDatumMatch match : results ) {
-			if ( i == 0 ) {
-				Assert.assertNull("First Wh not known", match.getSampleData());
-			} else {
-				assertEquals("Wh for minute slot " + i, Integer.valueOf(10),
-						match.getSampleData().get("wattHours"));
-			}
+			assertEquals("Wh for minute slot " + i, Integer.valueOf(10),
+					match.getSampleData().get("wattHours"));
 			i++;
 		}
+		assertEquals("Processed result count", 11, i);
 	}
 
 	@Test
@@ -598,8 +595,8 @@ public class MyBatisGeneralLocationDatumDaoTests extends AbstractMyBatisDaoTestS
 
 		int i = 0;
 		for ( ReportingGeneralLocationDatumMatch match : results ) {
-			if ( i == 0 ) {
-				Assert.assertNull("First Wh not known", match.getSampleData().get("wattHours"));
+			if ( i == 11 ) {
+				Assert.assertNull("Last Wh not known", match.getSampleData().get("wattHours"));
 			} else {
 				assertEquals("Wh for minute slot " + i, Integer.valueOf(10),
 						match.getSampleData().get("wattHours"));
@@ -712,32 +709,17 @@ public class MyBatisGeneralLocationDatumDaoTests extends AbstractMyBatisDaoTestS
 		assertEquals("Minute query results", 4L, (long) results.getTotalResults());
 		assertEquals("Minute query results", 4, (int) results.getReturnedResultCount());
 
-		/*
-		 * <== Row: -1, 2014-02-02 01:00:00+13, 2014-02-02 01:00:00,
-		 * test.source,
-		 * {"i":{"watts":15,"watts_min":10,"watts_max":20},"a":{"wattHours":1.25
-		 * }} <== Row: -1, 2014-02-02 01:10:00+13, 2014-02-02 01:10:00,
-		 * test.source,
-		 * {"i":{"watts":35,"watts_min":30,"watts_max":40},"a":{"wattHours":5}}
-		 * <== Row: -1, 2014-02-02 01:20:00+13, 2014-02-02 01:20:00,
-		 * test.source,
-		 * {"i":{"watts":55,"watts_min":50,"watts_max":60},"a":{"wattHours":8.
-		 * 333}} <== Row: -1, 2014-02-02 01:30:00+13, 2014-02-02 01:30:00,
-		 * test.source,
-		 * {"i":{"watts":75,"watts_min":70,"watts_max":80},"a":{"wattHours":11.
-		 * 667}} <== Row: -1, 2014-02-02 01:40:00+13, 2014-02-02 01:40:00,
-		 * test.source,
-		 * {"i":{"watts":95,"watts_min":90,"watts_max":100},"a":{"wattHours":15}
-		 * } <== Row: -1, 2014-02-02 01:50:00+13, 2014-02-02 01:50:00,
-		 * test.source,
-		 * {"i":{"watts":115,"watts_min":110,"watts_max":120},"a":{"wattHours":
-		 * 18.333}}
+		/*-
+		 * 2014-02-02 01:00:00+13, 2014-02-02 01:00:00, test.source, {"i":{"watts":20,"watts_min":10,"watts_max":30}}
+		 * 2014-02-02 01:15:00+13, 2014-02-02 01:15:00, test.source, {"i":{"watts":50,"watts_min":40,"watts_max":60}}
+		 * 2014-02-02 01:30:00+13, 2014-02-02 01:30:00, test.source, {"i":{"watts":80,"watts_min":70,"watts_max":90}}
+		 * 2014-02-02 01:45:00+13, 2014-02-02 01:45:00, test.source, {"i":{"watts":110,"watts_min":100,"watts_max":120}}
 		 */
 		int i = 0;
 		for ( ReportingGeneralLocationDatumMatch match : results ) {
-			int expectedMin = (10 + (i * 20));
-			int expectedMax = expectedMin + 10;
-			int expected = (expectedMin + 5);
+			int expectedMin = (10 + (i * 30));
+			int expectedMax = expectedMin + 20;
+			int expected = (expectedMin + 10);
 			assertEquals("W for minute slot " + i, Integer.valueOf(expected),
 					match.getSampleData().get("watts"));
 			assertEquals("Wmin for minute slot " + i, Integer.valueOf(expectedMin),
