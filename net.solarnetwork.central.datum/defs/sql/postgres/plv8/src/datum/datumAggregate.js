@@ -34,6 +34,9 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 	/** A mapping of instantaneous datum property keys to associated accumulating property keys that should be derived.  */
 	var hourFill = 	(configuration && configuration.hourFill !== undefined ? configuration.hourFill : kDefaultHourFill);
 
+	/** The number of milliseconds in this time slot. */
+	var slotMs = endTs - ts;
+
 	var aobj = {};
 	var iobj = {};
 	var iobjCounts = {};
@@ -87,8 +90,8 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 		if ( recTimeDiff > toleranceMs ) {
 			// this record is too far away from previous record to treat as accumulating
 			percent = 0;
-		} else if ( recTime > endTs ) {
-			// this record is from after our time slot; accumulate leading fractional values
+		} else if ( recTime > endTs && (prevRecTime + slotMs > recTime)  ) {
+			// this record is from after our time slot and this slot crosses its slot boundary; accumulate leading fractional values
 			percent = ((endTs - prevRecTime) / recTimeDiff);
 		} else if ( prevRecTime < ts ) {
 			// this is the first record in our time slot, following another in the previous slot;
