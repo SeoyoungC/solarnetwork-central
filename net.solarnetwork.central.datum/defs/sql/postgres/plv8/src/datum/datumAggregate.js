@@ -116,7 +116,8 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 		prevInst = prevRecord.jdata.i;
 		if ( prevInst ) {
 			for ( prop in hourFill ) {
-				if ( (!accu || accu[prop] === undefined) && inst[prop] !== undefined && prevInst[prop] !== undefined ) {
+				// only derive from instantaneous if property does not already exist as accumulating
+				if ( (!accu || accu[hourFill[prop]] === undefined) && inst[prop] !== undefined && prevInst[prop] !== undefined ) {
 					addTo(hourFill[prop], calculateAverageOverHours(inst[prop], prevInst[prop], recTimeDiff), aobj, percent);
 				}
 			}

@@ -151,3 +151,31 @@ test('datum:aggregator:processRecords:sOnly', t => {
 
 	t.deepEqual(aggResults, expected);
 });
+
+test('datum:aggregator:processRecords:accumulatingPreferredOverHourFill', t => {
+	const start = moment('2017-01-01 10:00:00+13');
+	const end = start.clone().add(1, 'hour');
+	const service = aggregator({
+		startTs : start.valueOf(),
+		endTs : end.valueOf(),
+	});
+
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-15.csv');
+
+	var aggResults = [];
+	data.forEach(rec => {
+		delete rec.ts_start; // not provided for single aggregate span
+		var aggResult = service.addDatumRecord(rec);
+		if ( aggResult ) {
+			aggResults.push(aggResult);
+		}
+	});
+	aggResults = aggResults.concat(service.finish());
+
+	var expected = [
+		{ ts_start: start.toDate(), source_id: 'Main',
+			jdata: {i:{watts:12}, a: {wattHours:10}}},
+	];
+
+	t.deepEqual(aggResults, expected);
+});
