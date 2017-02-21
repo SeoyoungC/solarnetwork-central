@@ -190,7 +190,8 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 				jdata     : {},
 			},
 			prop,
-			aggInst;
+			aggInst,
+			aggInstStats;
 
 		// handle any fractional portion of the next record
 		if ( nextRecord ) {
@@ -209,17 +210,20 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 		// calculate our instantaneous average values
 		aggInst = calculateAverages(iobj, iobjCounts);
 
+		// fix precision of instantaneous stats via mergeObjects, so we can compare with aggInst values
+		aggInstStats = mergeObjects({}, iobjStats);
+
 		// inject min/max statistic values for instantaneous average values
 		for ( prop in aggInst ) {
 			if ( aggRecord.jdata.i === undefined ) {
 				aggRecord.jdata.i = aggInst;
 			}
-			if ( iobjStats[prop] !== undefined ) {
-				if ( iobjStats[prop].min !== undefined && iobjStats[prop].min !== aggInst[prop] ) {
-					aggInst[prop+'_min'] = iobjStats[prop].min;
+			if ( aggInstStats[prop] !== undefined ) {
+				if ( aggInstStats[prop].min !== undefined && aggInstStats[prop].min !== aggInst[prop] ) {
+					aggInst[prop+'_min'] = aggInstStats[prop].min;
 				}
-				if ( iobjStats[prop].max !== undefined && iobjStats[prop].max !== aggInst[prop] ) {
-					aggInst[prop+'_max'] = iobjStats[prop].max;
+				if ( aggInstStats[prop].max !== undefined && aggInstStats[prop].max !== aggInst[prop] ) {
+					aggInst[prop+'_max'] = aggInstStats[prop].max;
 				}
 			}
 		}
