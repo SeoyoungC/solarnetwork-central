@@ -2,6 +2,7 @@
 
 import calculateAverages from 'math/calculateAverages'
 import calculateAverageOverHours from 'math/calculateAverageOverHours'
+import fixPrecision from 'math/fixPrecision'
 import addTo from 'util/addTo'
 import mergeObjects from 'util/mergeObjects'
 
@@ -191,7 +192,7 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 			},
 			prop,
 			aggInst,
-			aggInstStats;
+			aggInstStat;
 
 		// handle any fractional portion of the next record
 		if ( nextRecord ) {
@@ -210,20 +211,19 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 		// calculate our instantaneous average values
 		aggInst = calculateAverages(iobj, iobjCounts);
 
-		// fix precision of instantaneous stats via mergeObjects, so we can compare with aggInst values
-		aggInstStats = mergeObjects({}, iobjStats);
-
 		// inject min/max statistic values for instantaneous average values
 		for ( prop in aggInst ) {
 			if ( aggRecord.jdata.i === undefined ) {
 				aggRecord.jdata.i = aggInst;
 			}
-			if ( aggInstStats[prop] !== undefined ) {
-				if ( aggInstStats[prop].min !== undefined && aggInstStats[prop].min !== aggInst[prop] ) {
-					aggInst[prop+'_min'] = aggInstStats[prop].min;
+			if ( iobjStats[prop] !== undefined ) {
+				aggInstStat = fixPrecision(iobjStats[prop].min);
+				if ( aggInstStat !== undefined && aggInstStat !== aggInst[prop] ) {
+					aggInst[prop+'_min'] = aggInstStat;
 				}
-				if ( aggInstStats[prop].max !== undefined && aggInstStats[prop].max !== aggInst[prop] ) {
-					aggInst[prop+'_max'] = aggInstStats[prop].max;
+				aggInstStat = fixPrecision(iobjStats[prop].max);
+				if ( aggInstStat !== undefined && aggInstStat !== aggInst[prop] ) {
+					aggInst[prop+'_max'] = aggInstStat;
 				}
 			}
 		}

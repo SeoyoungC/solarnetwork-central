@@ -15,6 +15,10 @@ var _calculateAverageOverHours = require('../math/calculateAverageOverHours');
 
 var _calculateAverageOverHours2 = _interopRequireDefault(_calculateAverageOverHours);
 
+var _fixPrecision = require('../math/fixPrecision');
+
+var _fixPrecision2 = _interopRequireDefault(_fixPrecision);
+
 var _addTo = require('../util/addTo');
 
 var _addTo2 = _interopRequireDefault(_addTo);
@@ -211,7 +215,7 @@ function datumAggregate(sourceId, ts, endTs, configuration) {
 		},
 		    prop,
 		    aggInst,
-		    aggInstStats;
+		    aggInstStat;
 
 		// handle any fractional portion of the next record
 		if (nextRecord) {
@@ -230,20 +234,19 @@ function datumAggregate(sourceId, ts, endTs, configuration) {
 		// calculate our instantaneous average values
 		aggInst = (0, _calculateAverages2.default)(iobj, iobjCounts);
 
-		// fix precision of instantaneous stats via mergeObjects, so we can compare with aggInst values
-		aggInstStats = (0, _mergeObjects2.default)({}, iobjStats);
-
 		// inject min/max statistic values for instantaneous average values
 		for (prop in aggInst) {
 			if (aggRecord.jdata.i === undefined) {
 				aggRecord.jdata.i = aggInst;
 			}
-			if (aggInstStats[prop] !== undefined) {
-				if (aggInstStats[prop].min !== undefined && aggInstStats[prop].min !== aggInst[prop]) {
-					aggInst[prop + '_min'] = aggInstStats[prop].min;
+			if (iobjStats[prop] !== undefined) {
+				aggInstStat = (0, _fixPrecision2.default)(iobjStats[prop].min);
+				if (aggInstStat !== undefined && aggInstStat !== aggInst[prop]) {
+					aggInst[prop + '_min'] = aggInstStat;
 				}
-				if (aggInstStats[prop].max !== undefined && aggInstStats[prop].max !== aggInst[prop]) {
-					aggInst[prop + '_max'] = aggInstStats[prop].max;
+				aggInstStat = (0, _fixPrecision2.default)(iobjStats[prop].max);
+				if (aggInstStat !== undefined && aggInstStat !== aggInst[prop]) {
+					aggInst[prop + '_max'] = aggInstStat;
 				}
 			}
 		}

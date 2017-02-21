@@ -242,3 +242,29 @@ test('datum:datumAggregate:processRecords:15m:noPreviousSlot', t => {
 	t.deepEqual(aggResult.jdata.a, {bar:20});
 });
 
+test('datum:datumAggregate:processRecords:15m:roundedStats', t => {
+	const start = moment('2016-10-10 11:00:00+13');
+	const end = start.clone().add(15, 'minutes');
+	const sourceId = 'Foo';
+	const service = datumAggregate(sourceId, start.valueOf(), end.valueOf());
+	t.is(service.sourceId, sourceId);
+	t.is(service.ts, start.valueOf());
+	t.is(service.endTs, end.valueOf());
+
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-14.csv');
+
+	var aggResult;
+	data.forEach(rec => {
+		if ( rec.ts_start.getTime() < end.valueOf() ) {
+			service.addDatumRecord(rec);
+		} else {
+			aggResult = service.finish(rec);
+		}
+	});
+
+	var expected =
+		{ ts_start: start.toDate(), source_id: sourceId,
+			jdata: {i: {foo:15.515, foo_min:13.123, foo_max:17.432}}};
+
+	t.deepEqual(aggResult, expected);
+});
