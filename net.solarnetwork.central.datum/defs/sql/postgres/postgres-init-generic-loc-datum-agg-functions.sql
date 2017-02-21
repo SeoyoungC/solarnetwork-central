@@ -190,7 +190,7 @@ if ( slotMode ) {
 	helper = slotAggregator({
 		startTs : start_ts.getTime(),
 		endTs : endTs,
-		slotsecs : slotsecs
+		slotSecs : slotsecs
 	});
 } else {
 	stmt = plv8.prepare(

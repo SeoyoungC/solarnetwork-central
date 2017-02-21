@@ -103,6 +103,37 @@ test('datum:slotAggregator:processRecords:15mOnlyAdjacentRows', t => {
 	t.deepEqual(aggResults, expected);
 });
 
+test('datum:slotAggregator:processRecords:15mEven5s', t => {
+	const start = moment('2016-10-10 12:00:00+13');
+	const end = start.clone().add(1, 'hour');
+	const service = slotAggregator({
+		startTs : start.valueOf(),
+		endTs : end.valueOf(),
+		slotSecs : 900,
+		hourFill : {foo:'fooHours'},
+	});
+
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-09.csv');
+
+	var aggResults = [];
+	data.forEach(rec => {
+		var aggResult = service.addDatumRecord(rec);
+		if ( aggResult ) {
+			aggResults.push(aggResult);
+		}
+	});
+	aggResults = aggResults.concat(service.finish());
+
+	var expected = [
+		{ ts_start: moment('2016-10-10 11:00:00+13').toDate(), source_id: 'Foo', jdata: {a: {bar:30}}},
+		{ ts_start: moment('2016-10-10 11:15:00+13').toDate(), source_id: 'Foo', jdata: {a: {bar:30}}},
+		{ ts_start: moment('2016-10-10 11:30:00+13').toDate(), source_id: 'Foo', jdata: {a: {bar:30}}},
+		{ ts_start: moment('2016-10-10 11:45:00+13').toDate(), source_id: 'Foo', jdata: {a: {bar:20}}},
+	];
+
+	t.deepEqual(aggResults, expected);
+});
+
 test('datum:slotAggregator:processRecords:15mWithGaps', t => {
 	const start = moment('2016-10-10 11:00:00+13');
 	const end = start.clone().add(2, 'hour');
