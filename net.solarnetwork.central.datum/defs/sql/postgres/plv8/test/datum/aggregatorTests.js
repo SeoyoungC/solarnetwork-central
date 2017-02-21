@@ -120,3 +120,34 @@ test('datum:aggregator:processRecords:noTrailing', t => {
 		t.deepEqual(aggResult.jdata.a, expected[i].a, 'accumulating');
 	});
 });
+
+
+test('datum:aggregator:processRecords:sOnly', t => {
+	const start = moment('2017-01-01 10:00:00+13');
+	const end = start.clone().add(1, 'hour');
+	const service = aggregator({
+		startTs : start.valueOf(),
+		endTs : end.valueOf(),
+	});
+
+	const data = parseDatumCSV('find-datum-for-minute-time-slots-13.csv');
+
+	var aggResults = [];
+	data.forEach(rec => {
+		delete rec.ts_start; // not provided for single aggregate span
+		var aggResult = service.addDatumRecord(rec);
+		if ( aggResult ) {
+			aggResults.push(aggResult);
+		}
+	});
+	aggResults = aggResults.concat(service.finish());
+
+	var expected = [
+		{ ts_start: moment('2017-01-01 10:00:00+13').toDate(), source_id: 'level',
+			jdata: {s: {val:555}}},
+		{ ts_start: moment('2017-01-01 10:00:00+13').toDate(), source_id: 'percent',
+			jdata: {s: {val:3330}}},
+	];
+
+	t.deepEqual(aggResults, expected);
+});

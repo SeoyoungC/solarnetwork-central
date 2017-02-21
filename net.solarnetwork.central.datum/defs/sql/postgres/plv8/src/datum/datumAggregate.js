@@ -231,6 +231,16 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 			break;
 		}
 
+		for ( prop in sobj ) {
+			// add accumulating results via merge() to pick fixPrecision() values
+			aggRecord.jdata.s = sobj;
+			break;
+		}
+
+		if ( tarr.length > 0 ) {
+			aggRecord.jdata.t = tarr;
+		}
+
 		if ( aggRecord.jdata.i === undefined && aggRecord.jdata.a === undefined
 				&& aggRecord.jdata.s === undefined && aggRecord.jdata.t === undefined ) {
 			// no data for this aggregate
