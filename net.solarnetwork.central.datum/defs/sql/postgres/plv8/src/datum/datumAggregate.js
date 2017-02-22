@@ -114,7 +114,7 @@ export default function datumAggregate(sourceId, ts, endTs, configuration) {
 
 		// handle any accumulating values derived from instantaneous (via hourFill)
 		prevInst = prevRecord.jdata.i;
-		if ( prevInst ) {
+		if ( inst && prevInst ) {
 			for ( prop in hourFill ) {
 				// only derive from instantaneous if property does not already exist as accumulating
 				if ( (!accu || accu[hourFill[prop]] === undefined) && inst[prop] !== undefined && prevInst[prop] !== undefined ) {
