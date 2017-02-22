@@ -13,6 +13,15 @@ var _runningTotal2 = _interopRequireDefault(_runningTotal);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+/**
+ * Aggregate rows of datum records for a single node ID and any number of source IDs
+ * into a single running total result per source ID.
+ *
+ * Once instantiated, call the <code>addDatumRecord()</code> method repeatedly
+ * for each datum row. When all rows have been processed, call the
+ * <code>finish()</code> method to complete the aggregate processing and return
+ * all the aggregate result objects.
+ */
 function totalor() {
 	var self = {
 		version: '1'
@@ -27,9 +36,9 @@ function totalor() {
   * Add another datum record.
   *
   * @param {Object} record            The record to add.
-  * @param {Date}   record[ts]        The datum timestamp.
-  * @param {String} record[source_id] The datum source ID.
-  * @param {Object} record[jdata]     The datum JSON data object.
+  * @param {String} record.source_id  The datum source ID.
+  * @param {Number} record.weight     The weight of the record.
+  * @param {Object} record.jdata      The datum JSON data object.
   */
 	function addDatumRecord(record) {
 		if (!(record || record.source_id)) {

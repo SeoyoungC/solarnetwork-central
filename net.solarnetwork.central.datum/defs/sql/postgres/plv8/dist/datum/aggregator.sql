@@ -17,6 +17,21 @@ var _mergeObjects2 = _interopRequireDefault(_mergeObjects);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+/**
+ * Aggregate rows of datum records for a single node ID and any number of source IDs
+ * across a fixed time span into a single aggregate result per source ID.
+ *
+ * Once instantiated, call the <code>addDatumRecord()</code> method repeatedly
+ * for each datum row. When all rows have been processed, call the
+ * <code>finish()</code> method to complete the aggregate processing and return
+ * all the aggregate result objects.
+ *
+ * @param {Object} configuration The set of configuration properties.
+ * @param {Number} configuration.startTs     The timestamp associated with this
+ *                                           aggregate result (e.g. time span).
+ * @param {Number} configuration.endTs       The timestamp (exclusive) of the end of
+ *                                           this aggregate result.
+ */
 function aggregator(configuration) {
 	var self = {
 		version: '1'

@@ -2,6 +2,24 @@
 
 import datumAggregate from 'datum/datumAggregate';
 
+/**
+ * Aggregate rows of datum records for a single node ID and any number of source IDs
+ * across a fixed time span into smaller time "slots". For example a time span might
+ * be 24 hours while the time slots are 15minutes.
+ *
+ * Once instantiated, call the <code>addDatumRecord()</code> method repeatedly
+ * for each datum row. That method may return an aggregate result object. When
+ * all rows have been processed, call the <code>finish()</code> method to complete
+ * the aggregate processing and return any outstanding aggregate result objects.
+ *
+ * @param {Object} configuration The set of configuration properties.
+ * @param {Number} configuration.startTs     The timestamp associated with this
+ *                                           aggregate result (e.g. time slot).
+ * @param {Number} configuration.endTs       The timestamp (exclusive) of the end of
+ *                                           this aggregate result (e.g. next time slot).
+ * @param {Number} configuration.slotSecs    The number of seconds per slot to allocate.
+ *                                           Defaults to 600.
+ */
 export default function slotAggregator(configuration) {
 	var self = {
 		version : '1'
