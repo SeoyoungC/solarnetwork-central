@@ -128,7 +128,7 @@ SELECT sub.ts, sub.source_id, sub.jdata FROM (
 			ELSE FALSE
 		END AS outside,
 		d.jdata as jdata
-	FROM solardatum.da_datum d
+	FROM solardatum.da_loc_datum d
 	WHERE d.loc_id = loc
 		AND d.source_id = ANY(sources)
 		AND d.ts >= start_ts - tolerance
