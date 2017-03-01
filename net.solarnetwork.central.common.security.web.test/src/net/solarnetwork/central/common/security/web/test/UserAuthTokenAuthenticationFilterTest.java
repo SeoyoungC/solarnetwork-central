@@ -60,6 +60,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import net.solarnetwork.central.security.web.AuthenticationScheme;
 import net.solarnetwork.central.security.web.UserAuthTokenAuthenticationEntryPoint;
 import net.solarnetwork.central.security.web.UserAuthTokenAuthenticationFilter;
 
@@ -67,7 +68,7 @@ import net.solarnetwork.central.security.web.UserAuthTokenAuthenticationFilter;
  * Unit tests for the {@link UserAuthTokenAuthenticationFilter} class.
  * 
  * @author matt
- * @version 1.1
+ * @version 1.2
  */
 public class UserAuthTokenAuthenticationFilterTest {
 
@@ -113,11 +114,11 @@ public class UserAuthTokenAuthenticationFilterTest {
 			byte[] result = hmacSha1.doFinal(msg.getBytes("UTF-8"));
 			return Base64.encodeBase64String(result).trim();
 		} catch ( NoSuchAlgorithmException e ) {
-			throw new SecurityException("Error loading HmaxSHA1 crypto function", e);
+			throw new SecurityException("Error loading HmacSHA1 crypto function", e);
 		} catch ( InvalidKeyException e ) {
-			throw new SecurityException("Error loading HmaxSHA1 crypto function", e);
+			throw new SecurityException("Error loading HmacSHA1 crypto function", e);
 		} catch ( UnsupportedEncodingException e ) {
-			throw new SecurityException("Error loading HmaxSHA1 crypto function", e);
+			throw new SecurityException("Error loading HmacSHA1 crypto function", e);
 		}
 	}
 
@@ -153,8 +154,7 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	private void setupAuthorizationHeader(MockHttpServletRequest request, String value) {
-		request.addHeader(HTTP_HEADER_AUTH,
-				UserAuthTokenAuthenticationFilter.AUTHORIZATION_SCHEME + ' ' + value);
+		request.addHeader(HTTP_HEADER_AUTH, AuthenticationScheme.V1.getSchemeName() + ' ' + value);
 	}
 
 	@Test
@@ -171,8 +171,7 @@ public class UserAuthTokenAuthenticationFilterTest {
 
 	private void validateUnauthorizedResponse(String expectedMessage) {
 		assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.getStatus());
-		assertEquals(UserAuthTokenAuthenticationFilter.AUTHORIZATION_SCHEME,
-				response.getHeader("WWW-Authenticate"));
+		assertEquals(AuthenticationScheme.V1.getSchemeName(), response.getHeader("WWW-Authenticate"));
 		assertNotNull(response.getErrorMessage());
 		assertTrue("Error message must match [" + expectedMessage + "]",
 				response.getErrorMessage().matches(expectedMessage));

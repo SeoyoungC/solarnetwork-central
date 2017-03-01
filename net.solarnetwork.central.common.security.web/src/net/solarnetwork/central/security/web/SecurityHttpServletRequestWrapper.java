@@ -37,7 +37,7 @@ import net.solarnetwork.central.security.SecurityException;
  * request content.
  * 
  * @author matt
- * @version 1.1
+ * @version 1.2
  */
 public class SecurityHttpServletRequestWrapper extends HttpServletRequestWrapper {
 
@@ -105,6 +105,44 @@ public class SecurityHttpServletRequestWrapper extends HttpServletRequestWrapper
 			return null;
 		}
 		return DigestUtils.md5(cachedRequestBody);
+	}
+
+	/**
+	 * Compute the SHA1 hash of the request body.
+	 * 
+	 * @return the SHA1 hash, or <em>null</em> if there is no request content
+	 * @throws IOException
+	 *         if an IO exception occurs
+	 * @throws SecurityException
+	 *         if the request content length is larger than the configured
+	 *         {@code maximumLength}
+	 * @since 1.2
+	 */
+	public byte[] getContentSHA1() throws IOException {
+		cacheRequestBody();
+		if ( cachedRequestBody == null || cachedRequestBody.length < 1 ) {
+			return null;
+		}
+		return DigestUtils.sha1(cachedRequestBody);
+	}
+
+	/**
+	 * Compute the SHA256 hash of the request body.
+	 * 
+	 * @return the SHA256 hash, or <em>null</em> if there is no request content
+	 * @throws IOException
+	 *         if an IO exception occurs
+	 * @throws SecurityException
+	 *         if the request content length is larger than the configured
+	 *         {@code maximumLength}
+	 * @since 1.2
+	 */
+	public byte[] getContentSHA256() throws IOException {
+		cacheRequestBody();
+		if ( cachedRequestBody == null || cachedRequestBody.length < 1 ) {
+			return null;
+		}
+		return DigestUtils.sha256(cachedRequestBody);
 	}
 
 	@Override

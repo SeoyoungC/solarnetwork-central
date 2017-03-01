@@ -36,7 +36,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
  * Entry point for SolarNetworkWS authentication.
  * 
  * @author matt
- * @version 1.1
+ * @version 1.2
  */
 public class UserAuthTokenAuthenticationEntryPoint implements AuthenticationEntryPoint, Ordered {
 
@@ -48,7 +48,7 @@ public class UserAuthTokenAuthenticationEntryPoint implements AuthenticationEntr
 		headers.put("Access-Control-Allow-Origin", "*");
 		headers.put("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, DELETE, OPTIONS, PATCH");
 		headers.put("Access-Control-Allow-Headers",
-				"Authorization, Content-MD5, Content-Type, X-SN-Date");
+				"Authorization, Content-MD5, Content-Type, Digest, X-SN-Date");
 		return headers;
 	}
 
@@ -60,7 +60,7 @@ public class UserAuthTokenAuthenticationEntryPoint implements AuthenticationEntr
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException authException) throws IOException, ServletException {
-		response.addHeader("WWW-Authenticate", UserAuthTokenAuthenticationFilter.AUTHORIZATION_SCHEME);
+		response.addHeader("WWW-Authenticate", AuthenticationScheme.V1.getSchemeName());
 		response.addHeader(WebConstants.HEADER_ERROR_MESSAGE, authException.getMessage());
 		if ( httpHeaders != null ) {
 			for ( Map.Entry<String, String> me : httpHeaders.entrySet() ) {
