@@ -44,6 +44,7 @@ import org.springframework.security.authentication.BadCredentialsException;
  * 
  * @author matt
  * @version 1.0
+ * @since 1.8
  */
 public abstract class AuthenticationData {
 
