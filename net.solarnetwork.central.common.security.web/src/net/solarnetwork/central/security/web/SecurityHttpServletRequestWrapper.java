@@ -45,6 +45,10 @@ public class SecurityHttpServletRequestWrapper extends HttpServletRequestWrapper
 	private boolean requestBodyCached;
 	private byte[] cachedRequestBody; // TODO: support writing to temp file if body > maximumLength!
 
+	private byte[] cachedMD5 = null;
+	private byte[] cachedSHA1 = null;
+	private byte[] cachedSHA256 = null;
+
 	/**
 	 * Construct from a request.
 	 * 
@@ -100,11 +104,17 @@ public class SecurityHttpServletRequestWrapper extends HttpServletRequestWrapper
 	 *         {@code maximumLength}
 	 */
 	public byte[] getContentMD5() throws IOException {
+		byte[] digest = cachedMD5;
+		if ( digest != null ) {
+			return digest;
+		}
 		cacheRequestBody();
 		if ( cachedRequestBody == null || cachedRequestBody.length < 1 ) {
 			return null;
 		}
-		return DigestUtils.md5(cachedRequestBody);
+		digest = DigestUtils.md5(cachedRequestBody);
+		cachedMD5 = digest;
+		return digest;
 	}
 
 	/**
@@ -119,11 +129,17 @@ public class SecurityHttpServletRequestWrapper extends HttpServletRequestWrapper
 	 * @since 1.2
 	 */
 	public byte[] getContentSHA1() throws IOException {
+		byte[] digest = cachedSHA1;
+		if ( digest != null ) {
+			return digest;
+		}
 		cacheRequestBody();
 		if ( cachedRequestBody == null || cachedRequestBody.length < 1 ) {
 			return null;
 		}
-		return DigestUtils.sha1(cachedRequestBody);
+		digest = DigestUtils.sha1(cachedRequestBody);
+		cachedSHA1 = digest;
+		return digest;
 	}
 
 	/**
@@ -138,11 +154,17 @@ public class SecurityHttpServletRequestWrapper extends HttpServletRequestWrapper
 	 * @since 1.2
 	 */
 	public byte[] getContentSHA256() throws IOException {
+		byte[] digest = cachedSHA256;
+		if ( digest != null ) {
+			return digest;
+		}
 		cacheRequestBody();
 		if ( cachedRequestBody == null || cachedRequestBody.length < 1 ) {
 			return null;
 		}
-		return DigestUtils.sha256(cachedRequestBody);
+		digest = DigestUtils.sha256(cachedRequestBody);
+		cachedSHA256 = digest;
+		return digest;
 	}
 
 	@Override

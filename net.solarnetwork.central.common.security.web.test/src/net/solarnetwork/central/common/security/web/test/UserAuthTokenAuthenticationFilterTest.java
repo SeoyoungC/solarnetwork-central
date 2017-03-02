@@ -22,6 +22,8 @@
 
 package net.solarnetwork.central.common.security.web.test;
 
+import static net.solarnetwork.central.common.security.web.test.SecurityWebTestUtils.computeHMACSHA1;
+import static net.solarnetwork.central.common.security.web.test.SecurityWebTestUtils.httpDate;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.replay;
@@ -31,19 +33,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -106,28 +101,6 @@ public class UserAuthTokenAuthenticationFilterTest {
 		verify(filterChain, userDetailsService);
 	}
 
-	final String computeDigest(final String msg, final String password) {
-		Mac hmacSha1;
-		try {
-			hmacSha1 = Mac.getInstance("HmacSHA1");
-			hmacSha1.init(new SecretKeySpec(password.getBytes("UTF-8"), "HmacSHA1"));
-			byte[] result = hmacSha1.doFinal(msg.getBytes("UTF-8"));
-			return Base64.encodeBase64String(result).trim();
-		} catch ( NoSuchAlgorithmException e ) {
-			throw new SecurityException("Error loading HmacSHA1 crypto function", e);
-		} catch ( InvalidKeyException e ) {
-			throw new SecurityException("Error loading HmacSHA1 crypto function", e);
-		} catch ( UnsupportedEncodingException e ) {
-			throw new SecurityException("Error loading HmacSHA1 crypto function", e);
-		}
-	}
-
-	private String httpDate(Date date) {
-		SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
-		sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
-		return sdf.format(date);
-	}
-
 	private String createAuthorizationHeaderValue(String token, String secret,
 			MockHttpServletRequest request, Date date) {
 		return createAuthorizationHeaderValue(token, secret, request, date, null, null);
@@ -150,7 +123,7 @@ public class UserAuthTokenAuthenticationFilterTest {
 			}
 			msg += key + '=' + request.getParameter(key);
 		}
-		return token + ':' + computeDigest(msg, secret);
+		return token + ':' + Base64.encodeBase64String(computeHMACSHA1(secret, msg)).trim();
 	}
 
 	private void setupAuthorizationHeader(MockHttpServletRequest request, String value) {

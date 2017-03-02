@@ -35,7 +35,7 @@ public enum AuthenticationScheme {
 	V1("SolarNetworkWS"),
 
 	/** The version 2 scheme. */
-	V2("SNWSv2");
+	V2("SNWS2");
 
 	private String schemeName;
 

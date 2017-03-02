@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.codec.binary.Base64;
 import org.springframework.security.authentication.BadCredentialsException;
 
 /**
@@ -51,7 +52,12 @@ public class AuthenticationDataV1 extends AuthenticationData {
 		}
 		authTokenId = headerValue.substring(0, AUTH_TOKEN_ID_LENGTH);
 		signatureDigest = headerValue.substring(AUTH_TOKEN_ID_LENGTH + 1);
+		signature = computeSignatureData(request);
 
+		validateContentDigest(request);
+	}
+
+	private String computeSignatureData(SecurityHttpServletRequestWrapper request) {
 		StringBuilder buf = new StringBuilder(request.getMethod());
 		buf.append("\n");
 		buf.append(nullSafeHeaderValue(request, "Content-MD5")).append("\n");
@@ -59,10 +65,7 @@ public class AuthenticationDataV1 extends AuthenticationData {
 		buf.append(httpDate(getDate())).append("\n");
 		buf.append(request.getRequestURI());
 		appendQueryParameters(request, buf);
-
-		signature = buf.toString();
-
-		validateContentDigest(request);
+		return buf.toString();
 	}
 
 	private void appendQueryParameters(HttpServletRequest request, StringBuilder buf) {
@@ -101,7 +104,7 @@ public class AuthenticationDataV1 extends AuthenticationData {
 
 	@Override
 	public String computeSignatureDigest(String secretKey) {
-		return computeMACDigest(secretKey, "HmacSHA1");
+		return Base64.encodeBase64String(computeMACDigest(secretKey, "HmacSHA1"));
 	}
 
 }
