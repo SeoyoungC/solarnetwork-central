@@ -87,12 +87,12 @@ public class UserAuthTokenAuthenticationFilterTest {
 		assertEquals(TEST_AUTH_TOKEN, auth.getName());
 	}
 
-	private void validateUnauthorizedResponse(String expectedMessage) {
+	private void validateUnauthorizedResponse(AuthenticationScheme scheme, String expectedMessage) {
 		assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.getStatus());
-		assertEquals(AuthenticationScheme.V1.getSchemeName(), response.getHeader("WWW-Authenticate"));
+		assertEquals(scheme.getSchemeName(), response.getHeader("WWW-Authenticate"));
 		assertNotNull(response.getErrorMessage());
-		assertTrue("Error message must match [" + expectedMessage + "]",
-				response.getErrorMessage().matches(expectedMessage));
+		assertTrue("Error message [" + response.getErrorMessage() + "] must match [" + expectedMessage
+				+ "]", response.getErrorMessage().matches(expectedMessage));
 		assertEquals(expectedMessage, response.getErrorMessage());
 	}
 
@@ -138,7 +138,8 @@ public class UserAuthTokenAuthenticationFilterTest {
 				createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, new Date()));
 		filter.doFilter(request, response, filterChain);
 		verify(filterChain, userDetailsService);
-		validateUnauthorizedResponse("Missing or invalid HTTP Date header value");
+		validateUnauthorizedResponse(AuthenticationScheme.V1,
+				"Missing or invalid HTTP Date header value");
 	}
 
 	@Test
@@ -149,7 +150,8 @@ public class UserAuthTokenAuthenticationFilterTest {
 				createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, new Date()));
 		filter.doFilter(request, response, filterChain);
 		verify(filterChain, userDetailsService);
-		validateUnauthorizedResponse("Missing or invalid HTTP Date header value");
+		validateUnauthorizedResponse(AuthenticationScheme.V2,
+				"Missing or invalid HTTP Date header value");
 	}
 
 	@Test
@@ -163,7 +165,7 @@ public class UserAuthTokenAuthenticationFilterTest {
 		replay(filterChain, userDetailsService);
 		filter.doFilter(request, response, filterChain);
 		verify(filterChain, userDetailsService);
-		validateUnauthorizedResponse("Bad credentials");
+		validateUnauthorizedResponse(AuthenticationScheme.V1, "Bad credentials");
 	}
 
 	@Test
@@ -177,7 +179,7 @@ public class UserAuthTokenAuthenticationFilterTest {
 		replay(filterChain, userDetailsService);
 		filter.doFilter(request, response, filterChain);
 		verify(filterChain, userDetailsService);
-		validateUnauthorizedResponse("Bad credentials");
+		validateUnauthorizedResponse(AuthenticationScheme.V2, "Bad credentials");
 	}
 
 	@Test
@@ -191,7 +193,7 @@ public class UserAuthTokenAuthenticationFilterTest {
 		replay(filterChain, userDetailsService);
 		filter.doFilter(request, response, filterChain);
 		verify(filterChain, userDetailsService);
-		validateUnauthorizedResponse("Date skew too large");
+		validateUnauthorizedResponse(AuthenticationScheme.V1, "Date skew too large");
 	}
 
 	@Test
@@ -205,7 +207,7 @@ public class UserAuthTokenAuthenticationFilterTest {
 		replay(filterChain, userDetailsService);
 		filter.doFilter(request, response, filterChain);
 		verify(filterChain, userDetailsService);
-		validateUnauthorizedResponse("Date skew too large");
+		validateUnauthorizedResponse(AuthenticationScheme.V2, "Date skew too large");
 	}
 
 	@Test
@@ -403,6 +405,44 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	@Test
+	public void invalidContentMD5HexV1() throws ServletException, IOException {
+		final String contentType = "application/json; charset=UTF-8";
+		final String content = "{\"foo\":\"bar\"}";
+		final String contentMD5 = "9bb58f26192e4ba00f01e2e7b136bbFF";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType(contentType);
+		request.setContent(content.getBytes("UTF-8"));
+		request.addHeader("Content-MD5", contentMD5);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request, createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, contentType));
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		validateUnauthorizedResponse(AuthenticationScheme.V1, "Content md5 digest value mismatch");
+		verify(filterChain, userDetailsService);
+	}
+
+	@Test
+	public void invalidContentMD5HexV2() throws ServletException, IOException {
+		final String contentType = "application/json; charset=UTF-8";
+		final String content = "{\"foo\":\"bar\"}";
+		final String contentMD5 = "9bb58f26192e4ba00f01e2e7b136bbFF";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType(contentType);
+		request.setContent(content.getBytes("UTF-8"));
+		request.addHeader("Content-MD5", contentMD5);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request, createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, contentType));
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		validateUnauthorizedResponse(AuthenticationScheme.V2, "Content md5 digest value mismatch");
+		verify(filterChain, userDetailsService);
+	}
+
+	@Test
 	public void contentMD5Base64V1() throws ServletException, IOException {
 		final String contentType = "application/json; charset=UTF-8";
 		final String content = "{\"foo\":\"bar\"}";
@@ -443,6 +483,47 @@ public class UserAuthTokenAuthenticationFilterTest {
 		filter.doFilter(request, response, filterChain);
 		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
 		validateAuthentication();
+		verify(filterChain, userDetailsService);
+	}
+
+	@Test
+	public void digestSHA256V2() throws ServletException, IOException {
+		final String contentType = "application/json; charset=UTF-8";
+		final String content = "{\"foo\":\"bar\"}";
+		final String digestSHA256 = "eji/gfOD9pQzrW6QDTWz4jhVk/dqe3q11DVbi6Qe4ks=";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType(contentType);
+		request.setContent(content.getBytes("UTF-8"));
+		request.addHeader("Digest", "sha-256=" + digestSHA256);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request, createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, contentType));
+		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
+		validateAuthentication();
+		verify(filterChain, userDetailsService);
+	}
+
+	@Test
+	public void invalidDigestSHA256V2() throws ServletException, IOException {
+		final String contentType = "application/json; charset=UTF-8";
+		final String content = "{\"foo\":\"bar\"}";
+		final String digestSHA256 = "Ix2SImWvBXHmqXTuPAaDHz16KeaOlIokZObv6cU+Ie8=";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType(contentType);
+		request.setContent(content.getBytes("UTF-8"));
+		request.addHeader("Digest", "sha-256=" + digestSHA256);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request, createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, contentType));
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		validateUnauthorizedResponse(AuthenticationScheme.V2, "Content sha-256 digest value mismatch");
 		verify(filterChain, userDetailsService);
 	}
 }
