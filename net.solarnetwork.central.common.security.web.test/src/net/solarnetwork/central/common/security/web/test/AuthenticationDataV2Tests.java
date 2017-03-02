@@ -58,6 +58,7 @@ import net.solarnetwork.central.security.web.WebConstants;
  */
 public class AuthenticationDataV2Tests {
 
+	private static final String HTTP_HEADER_AUTH = "Authorization";
 	private static final String HTTP_HEADER_HOST = "Host";
 	private static final String TEST_HOST = "host.example.com";
 	private static final String TEST_AUTH_TOKEN = "12345678901234567890";
@@ -188,6 +189,9 @@ public class AuthenticationDataV2Tests {
 		if ( request.getHeader("Content-MD5") != null ) {
 			headerNames.add("Content-MD5");
 		}
+		if ( request.getHeader("Content-Type") != null ) {
+			headerNames.add("Content-Type");
+		}
 		if ( request.getHeader("Digest") != null ) {
 			headerNames.add("Digest");
 		}
@@ -205,6 +209,17 @@ public class AuthenticationDataV2Tests {
 		buf.append(",SignedHeaders=").append(StringUtils.arrayToDelimitedString(sortedHeaderNames, ";"));
 		buf.append(",Signature=").append(signature);
 		return buf.toString();
+	}
+
+	private AuthenticationDataV2 verifyRequest(HttpServletRequest request, String secretKey)
+			throws IOException {
+		AuthenticationDataV2 authData = new AuthenticationDataV2(
+				new SecurityHttpServletRequestWrapper(request, 1024), request.getHeader(HTTP_HEADER_AUTH)
+						.substring(AuthenticationScheme.V2.getSchemeName().length() + 1));
+		Assert.assertTrue("The date skew is OK", authData.isDateValid(TEST_MAX_DATE_SKEW));
+		String computedDigest = authData.computeSignatureDigest(secretKey);
+		Assert.assertEquals(computedDigest, authData.getSignatureDigest());
+		return authData;
 	}
 
 	@Test
@@ -226,7 +241,7 @@ public class AuthenticationDataV2Tests {
 		final Date now = new Date();
 		request.addHeader("Date", now);
 		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, "foobar", request, now);
-		request.addHeader("Authorization", authHeader);
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
 		AuthenticationDataV2 authData = new AuthenticationDataV2(
 				new SecurityHttpServletRequestWrapper(request, 1024),
 				authHeader.substring(AuthenticationScheme.V2.getSchemeName().length() + 1));
@@ -241,7 +256,7 @@ public class AuthenticationDataV2Tests {
 		final Date now = new Date(System.currentTimeMillis() - 16L * 60L * 1000L);
 		request.addHeader("Date", now);
 		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now);
-		request.addHeader("Authorization", authHeader);
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
 		AuthenticationDataV2 authData = new AuthenticationDataV2(
 				new SecurityHttpServletRequestWrapper(request, 1024),
 				authHeader.substring(AuthenticationScheme.V2.getSchemeName().length() + 1));
@@ -254,13 +269,8 @@ public class AuthenticationDataV2Tests {
 		final Date now = new Date();
 		request.addHeader("Date", now);
 		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now);
-		request.addHeader("Authorization", authHeader);
-		AuthenticationDataV2 authData = new AuthenticationDataV2(
-				new SecurityHttpServletRequestWrapper(request, 1024),
-				authHeader.substring(AuthenticationScheme.V2.getSchemeName().length() + 1));
-		Assert.assertTrue("The date skew is OK", authData.isDateValid(TEST_MAX_DATE_SKEW));
-		String computedDigest = authData.computeSignatureDigest(TEST_PASSWORD);
-		Assert.assertEquals(computedDigest, authData.getSignatureDigest());
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
+		verifyRequest(request, TEST_PASSWORD);
 	}
 
 	@Test
@@ -269,13 +279,8 @@ public class AuthenticationDataV2Tests {
 		final Date now = new Date();
 		request.addHeader("X-SN-Date", now);
 		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now);
-		request.addHeader("Authorization", authHeader);
-		AuthenticationDataV2 authData = new AuthenticationDataV2(
-				new SecurityHttpServletRequestWrapper(request, 1024),
-				authHeader.substring(AuthenticationScheme.V2.getSchemeName().length() + 1));
-		Assert.assertTrue("The date skew is OK", authData.isDateValid(TEST_MAX_DATE_SKEW));
-		String computedDigest = authData.computeSignatureDigest(TEST_PASSWORD);
-		Assert.assertEquals(computedDigest, authData.getSignatureDigest());
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
+		verifyRequest(request, TEST_PASSWORD);
 	}
 
 	@Test
@@ -289,13 +294,8 @@ public class AuthenticationDataV2Tests {
 		final Date now = new Date();
 		request.addHeader("Date", now);
 		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now);
-		request.addHeader("Authorization", authHeader);
-		AuthenticationDataV2 authData = new AuthenticationDataV2(
-				new SecurityHttpServletRequestWrapper(request, 1024),
-				authHeader.substring(AuthenticationScheme.V2.getSchemeName().length() + 1));
-		Assert.assertTrue("The date skew is OK", authData.isDateValid(TEST_MAX_DATE_SKEW));
-		String computedDigest = authData.computeSignatureDigest(TEST_PASSWORD);
-		Assert.assertEquals(computedDigest, authData.getSignatureDigest());
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
+		verifyRequest(request, TEST_PASSWORD);
 	}
 
 	@Test
@@ -309,81 +309,58 @@ public class AuthenticationDataV2Tests {
 		final Date now = new Date();
 		request.addHeader("Date", now);
 		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now);
-		request.addHeader("Authorization", authHeader);
-		AuthenticationDataV2 authData = new AuthenticationDataV2(
-				new SecurityHttpServletRequestWrapper(request, 1024),
-				authHeader.substring(AuthenticationScheme.V2.getSchemeName().length() + 1));
-		Assert.assertTrue("The date skew is OK", authData.isDateValid(TEST_MAX_DATE_SKEW));
-		String computedDigest = authData.computeSignatureDigest(TEST_PASSWORD);
-		Assert.assertEquals(computedDigest, authData.getSignatureDigest());
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
+		verifyRequest(request, TEST_PASSWORD);
 	}
 
-	/*-
-	
-		@Test
-		public void contentType() throws ServletException, IOException {
-			MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
-			request.setContentType("application/x-www-form-urlencoded; charset=UTF-8");
-			Map<String, String> params = new HashMap<String, String>();
-			params.put("foo", "bar");
-			params.put("bar", "foo");
-			params.put("zog", "dog");
-			request.setParameters(params);
-			final Date now = new Date();
-			request.addHeader("Date", now);
-			setupAuthorizationHeader(request, createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD,
-					request, now, "application/x-www-form-urlencoded; charset=UTF-8", null));
-			filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
-			expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
-			replay(filterChain, userDetailsService);
-			filter.doFilter(request, response, filterChain);
-			assertEquals(HttpServletResponse.SC_OK, response.getStatus());
-			validateAuthentication();
-			verify(filterChain, userDetailsService);
-		}
-	
-		@Test
-		public void contentMD5Hex() throws ServletException, IOException {
-			final String contentType = "application/json; charset=UTF-8";
-			final String content = "{\"foo\":\"bar\"}";
-			final String contentMD5 = "9bb58f26192e4ba00f01e2e7b136bbd8";
-			MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
-			request.setContentType(contentType);
-			request.setContent(content.getBytes("UTF-8"));
-			request.addHeader("Content-MD5", contentMD5);
-			final Date now = new Date();
-			request.addHeader("Date", now);
-			setupAuthorizationHeader(request, createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD,
-					request, now, contentType, contentMD5));
-			filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
-			expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
-			replay(filterChain, userDetailsService);
-			filter.doFilter(request, response, filterChain);
-			assertEquals(HttpServletResponse.SC_OK, response.getStatus());
-			validateAuthentication();
-			verify(filterChain, userDetailsService);
-		}
-	
-		@Test
-		public void contentMD5Base64() throws ServletException, IOException {
-			final String contentType = "application/json; charset=UTF-8";
-			final String content = "{\"foo\":\"bar\"}";
-			final String contentMD5 = "m7WPJhkuS6APAeLnsTa72A==";
-			MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
-			request.setContentType(contentType);
-			request.setContent(content.getBytes("UTF-8"));
-			request.addHeader("Content-MD5", contentMD5);
-			final Date now = new Date();
-			request.addHeader("Date", now);
-			setupAuthorizationHeader(request, createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD,
-					request, now, contentType, contentMD5));
-			filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
-			expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
-			replay(filterChain, userDetailsService);
-			filter.doFilter(request, response, filterChain);
-			assertEquals(HttpServletResponse.SC_OK, response.getStatus());
-			validateAuthentication();
-			verify(filterChain, userDetailsService);
-		}
-		*/
+	@Test
+	public void contentType() throws ServletException, IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType("application/x-www-form-urlencoded; charset=UTF-8");
+		Map<String, String> params = new LinkedHashMap<String, String>();
+		params.put("foo", "bar");
+		params.put("bar", "foo");
+		params.put("zog", "dog");
+		request.setParameters(params);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now,
+				"application/x-www-form-urlencoded; charset=UTF-8", null);
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
+		verifyRequest(request, TEST_PASSWORD);
+	}
+
+	@Test
+	public void contentMD5Hex() throws ServletException, IOException {
+		final String contentType = "application/json; charset=UTF-8";
+		final String content = "{\"foo\":\"bar\"}";
+		final String contentMD5 = "9bb58f26192e4ba00f01e2e7b136bbd8";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType(contentType);
+		request.setContent(content.getBytes("UTF-8"));
+		request.addHeader("Content-MD5", contentMD5);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now,
+				contentType, content);
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
+		verifyRequest(request, TEST_PASSWORD);
+	}
+
+	@Test
+	public void contentMD5Base64() throws ServletException, IOException {
+		final String contentType = "application/json; charset=UTF-8";
+		final String content = "{\"foo\":\"bar\"}";
+		final String contentMD5 = "m7WPJhkuS6APAeLnsTa72A==";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType(contentType);
+		request.setContent(content.getBytes("UTF-8"));
+		request.addHeader("Content-MD5", contentMD5);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		String authHeader = createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now,
+				contentType, content);
+		request.addHeader(HTTP_HEADER_AUTH, authHeader);
+		verifyRequest(request, TEST_PASSWORD);
+	}
 }
