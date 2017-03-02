@@ -22,8 +22,8 @@
 
 package net.solarnetwork.central.common.security.web.test;
 
-import static net.solarnetwork.central.common.security.web.test.SecurityWebTestUtils.computeHMACSHA1;
-import static net.solarnetwork.central.common.security.web.test.SecurityWebTestUtils.httpDate;
+import static net.solarnetwork.central.common.security.web.test.AuthenticationDataV1Tests.createAuthorizationHeaderV1Value;
+import static net.solarnetwork.central.common.security.web.test.AuthenticationDataV2Tests.createAuthorizationHeaderV2Value;
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.replay;
@@ -34,7 +34,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -43,7 +42,6 @@ import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import org.apache.commons.codec.binary.Base64;
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
@@ -78,6 +76,26 @@ public class UserAuthTokenAuthenticationFilterTest {
 	private UserAuthTokenAuthenticationFilter filter;
 	private User userDetails;
 
+	private void setupAuthorizationHeader(MockHttpServletRequest request, String value) {
+		request.addHeader(HTTP_HEADER_AUTH, value);
+	}
+
+	private void validateAuthentication() {
+		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		assertNotNull(auth);
+		assertEquals(TEST_AUTH_TOKEN, auth.getName());
+	}
+
+	private void validateUnauthorizedResponse(String expectedMessage) {
+		assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.getStatus());
+		assertEquals(AuthenticationScheme.V1.getSchemeName(), response.getHeader("WWW-Authenticate"));
+		assertNotNull(response.getErrorMessage());
+		assertTrue("Error message must match [" + expectedMessage + "]",
+				response.getErrorMessage().matches(expectedMessage));
+		assertEquals(expectedMessage, response.getErrorMessage());
+	}
+
 	@Before
 	public void setup() {
 		filterChain = EasyMock.createMock(FilterChain.class);
@@ -101,81 +119,46 @@ public class UserAuthTokenAuthenticationFilterTest {
 		verify(filterChain, userDetailsService);
 	}
 
-	private String createAuthorizationHeaderValue(String token, String secret,
-			MockHttpServletRequest request, Date date) {
-		return createAuthorizationHeaderValue(token, secret, request, date, null, null);
-	}
-
-	private String createAuthorizationHeaderValue(String token, String secret,
-			MockHttpServletRequest request, Date date, String contentType, String contentMD5) {
-		String msg = request.getMethod() + "\n" + (contentMD5 != null ? contentMD5 : "") + "\n"
-				+ (contentType != null ? contentType : "") + "\n" + httpDate(date) + "\n"
-				+ request.getRequestURI();
-		String[] keys = request.getParameterMap().keySet().toArray(new String[0]);
-		Arrays.sort(keys);
-		boolean first = true;
-		for ( String key : keys ) {
-			if ( first ) {
-				msg += '?';
-				first = false;
-			} else {
-				msg += '&';
-			}
-			msg += key + '=' + request.getParameter(key);
-		}
-		return token + ':' + Base64.encodeBase64String(computeHMACSHA1(secret, msg)).trim();
-	}
-
-	private void setupAuthorizationHeader(MockHttpServletRequest request, String value) {
-		request.addHeader(HTTP_HEADER_AUTH, AuthenticationScheme.V1.getSchemeName() + ' ' + value);
-	}
-
 	@Test
 	public void invalidScheme() throws ServletException, IOException {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
 		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
 		replay(filterChain, userDetailsService);
-		request.addHeader(HTTP_HEADER_AUTH, "FooScheme "
-				+ createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, new Date()));
+		setupAuthorizationHeader(request, "FooScheme ABC:DOEIJLSIEWOSEIHLSISYEOIHEOIJ");
 		filter.doFilter(request, response, filterChain);
 		verify(filterChain, userDetailsService);
 
 	}
 
-	private void validateUnauthorizedResponse(String expectedMessage) {
-		assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.getStatus());
-		assertEquals(AuthenticationScheme.V1.getSchemeName(), response.getHeader("WWW-Authenticate"));
-		assertNotNull(response.getErrorMessage());
-		assertTrue("Error message must match [" + expectedMessage + "]",
-				response.getErrorMessage().matches(expectedMessage));
-		assertEquals(expectedMessage, response.getErrorMessage());
-	}
-
 	@Test
-	public void missingDate() throws ServletException, IOException {
+	public void missingDateV1() throws ServletException, IOException {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
 		replay(filterChain, userDetailsService);
 		setupAuthorizationHeader(request,
-				createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, new Date()));
+				createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, new Date()));
 		filter.doFilter(request, response, filterChain);
 		verify(filterChain, userDetailsService);
 		validateUnauthorizedResponse("Missing or invalid HTTP Date header value");
 	}
 
-	private void validateAuthentication() {
-		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
-		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-		assertNotNull(auth);
-		assertEquals(TEST_AUTH_TOKEN, auth.getName());
+	@Test
+	public void missingDateV2() throws ServletException, IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
+		replay(filterChain, userDetailsService);
+		setupAuthorizationHeader(request,
+				createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, new Date()));
+		filter.doFilter(request, response, filterChain);
+		verify(filterChain, userDetailsService);
+		validateUnauthorizedResponse("Missing or invalid HTTP Date header value");
 	}
 
 	@Test
-	public void badPassword() throws ServletException, IOException {
+	public void badPasswordV1() throws ServletException, IOException {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
 		final Date now = new Date();
 		request.addHeader("Date", now);
 		setupAuthorizationHeader(request,
-				createAuthorizationHeaderValue(TEST_AUTH_TOKEN, "foobar", request, now));
+				createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN, "foobar", request, now));
 		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
 		replay(filterChain, userDetailsService);
 		filter.doFilter(request, response, filterChain);
@@ -184,12 +167,26 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	@Test
-	public void tooMuchSkew() throws ServletException, IOException {
+	public void badPasswordV2() throws ServletException, IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request,
+				createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN, "foobar", request, now));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		verify(filterChain, userDetailsService);
+		validateUnauthorizedResponse("Bad credentials");
+	}
+
+	@Test
+	public void tooMuchSkewV1() throws ServletException, IOException {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
 		final Date now = new Date(System.currentTimeMillis() - 16L * 60L * 1000L);
 		request.addHeader("Date", now);
 		setupAuthorizationHeader(request,
-				createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
+				createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
 		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
 		replay(filterChain, userDetailsService);
 		filter.doFilter(request, response, filterChain);
@@ -198,12 +195,26 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	@Test
-	public void simplePath() throws ServletException, IOException {
+	public void tooMuchSkewV2() throws ServletException, IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
+		final Date now = new Date(System.currentTimeMillis() - 16L * 60L * 1000L);
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request,
+				createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		verify(filterChain, userDetailsService);
+		validateUnauthorizedResponse("Date skew too large");
+	}
+
+	@Test
+	public void simplePathV1() throws ServletException, IOException {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
 		final Date now = new Date();
 		request.addHeader("Date", now);
 		setupAuthorizationHeader(request,
-				createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
+				createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
 		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
 		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
 		replay(filterChain, userDetailsService);
@@ -214,12 +225,28 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	@Test
-	public void simplePathWithXDate() throws ServletException, IOException {
+	public void simplePathV2() throws ServletException, IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request,
+				createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
+		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		verify(filterChain, userDetailsService);
+		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
+		validateAuthentication();
+	}
+
+	@Test
+	public void simplePathWithXDateV1() throws ServletException, IOException {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
 		final Date now = new Date();
 		request.addHeader("X-SN-Date", now);
 		setupAuthorizationHeader(request,
-				createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
+				createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
 		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
 		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
 		replay(filterChain, userDetailsService);
@@ -230,7 +257,23 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	@Test
-	public void pathWithQueryParams() throws ServletException, IOException {
+	public void simplePathWithXDateV2() throws ServletException, IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
+		final Date now = new Date();
+		request.addHeader("X-SN-Date", now);
+		setupAuthorizationHeader(request,
+				createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
+		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		verify(filterChain, userDetailsService);
+		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
+		validateAuthentication();
+	}
+
+	@Test
+	public void pathWithQueryParamsV1() throws ServletException, IOException {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
 		Map<String, String> params = new HashMap<String, String>();
 		params.put("foo", "bar");
@@ -240,7 +283,7 @@ public class UserAuthTokenAuthenticationFilterTest {
 		final Date now = new Date();
 		request.addHeader("Date", now);
 		setupAuthorizationHeader(request,
-				createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
+				createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
 		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
 		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
 		replay(filterChain, userDetailsService);
@@ -251,7 +294,28 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	@Test
-	public void contentType() throws ServletException, IOException {
+	public void pathWithQueryParamsV2() throws ServletException, IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/mock/path/here");
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("foo", "bar");
+		params.put("bar", "foo");
+		params.put("zog", "dog");
+		request.setParameters(params);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request,
+				createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN, TEST_PASSWORD, request, now));
+		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
+		validateAuthentication();
+		verify(filterChain, userDetailsService);
+	}
+
+	@Test
+	public void contentTypeV1() throws ServletException, IOException {
 		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
 		request.setContentType("application/x-www-form-urlencoded; charset=UTF-8");
 		Map<String, String> params = new HashMap<String, String>();
@@ -261,8 +325,8 @@ public class UserAuthTokenAuthenticationFilterTest {
 		request.setParameters(params);
 		final Date now = new Date();
 		request.addHeader("Date", now);
-		setupAuthorizationHeader(request, createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD,
-				request, now, "application/x-www-form-urlencoded; charset=UTF-8", null));
+		setupAuthorizationHeader(request, createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, "application/x-www-form-urlencoded; charset=UTF-8"));
 		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
 		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
 		replay(filterChain, userDetailsService);
@@ -273,7 +337,29 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	@Test
-	public void contentMD5Hex() throws ServletException, IOException {
+	public void contentTypeV2() throws ServletException, IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType("application/x-www-form-urlencoded; charset=UTF-8");
+		Map<String, String> params = new HashMap<String, String>();
+		params.put("foo", "bar");
+		params.put("bar", "foo");
+		params.put("zog", "dog");
+		request.setParameters(params);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request, createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, "application/x-www-form-urlencoded; charset=UTF-8"));
+		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
+		validateAuthentication();
+		verify(filterChain, userDetailsService);
+	}
+
+	@Test
+	public void contentMD5HexV1() throws ServletException, IOException {
 		final String contentType = "application/json; charset=UTF-8";
 		final String content = "{\"foo\":\"bar\"}";
 		final String contentMD5 = "9bb58f26192e4ba00f01e2e7b136bbd8";
@@ -283,8 +369,8 @@ public class UserAuthTokenAuthenticationFilterTest {
 		request.addHeader("Content-MD5", contentMD5);
 		final Date now = new Date();
 		request.addHeader("Date", now);
-		setupAuthorizationHeader(request, createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD,
-				request, now, contentType, contentMD5));
+		setupAuthorizationHeader(request, createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, contentType));
 		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
 		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
 		replay(filterChain, userDetailsService);
@@ -295,7 +381,29 @@ public class UserAuthTokenAuthenticationFilterTest {
 	}
 
 	@Test
-	public void contentMD5Base64() throws ServletException, IOException {
+	public void contentMD5HexV2() throws ServletException, IOException {
+		final String contentType = "application/json; charset=UTF-8";
+		final String content = "{\"foo\":\"bar\"}";
+		final String contentMD5 = "9bb58f26192e4ba00f01e2e7b136bbd8";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType(contentType);
+		request.setContent(content.getBytes("UTF-8"));
+		request.addHeader("Content-MD5", contentMD5);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request, createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, contentType));
+		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
+		validateAuthentication();
+		verify(filterChain, userDetailsService);
+	}
+
+	@Test
+	public void contentMD5Base64V1() throws ServletException, IOException {
 		final String contentType = "application/json; charset=UTF-8";
 		final String content = "{\"foo\":\"bar\"}";
 		final String contentMD5 = "m7WPJhkuS6APAeLnsTa72A==";
@@ -305,8 +413,30 @@ public class UserAuthTokenAuthenticationFilterTest {
 		request.addHeader("Content-MD5", contentMD5);
 		final Date now = new Date();
 		request.addHeader("Date", now);
-		setupAuthorizationHeader(request, createAuthorizationHeaderValue(TEST_AUTH_TOKEN, TEST_PASSWORD,
-				request, now, contentType, contentMD5));
+		setupAuthorizationHeader(request, createAuthorizationHeaderV1Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, contentType));
+		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
+		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
+		replay(filterChain, userDetailsService);
+		filter.doFilter(request, response, filterChain);
+		assertEquals(HttpServletResponse.SC_OK, response.getStatus());
+		validateAuthentication();
+		verify(filterChain, userDetailsService);
+	}
+
+	@Test
+	public void contentMD5Base64V2() throws ServletException, IOException {
+		final String contentType = "application/json; charset=UTF-8";
+		final String content = "{\"foo\":\"bar\"}";
+		final String contentMD5 = "m7WPJhkuS6APAeLnsTa72A==";
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/mock/path/here");
+		request.setContentType(contentType);
+		request.setContent(content.getBytes("UTF-8"));
+		request.addHeader("Content-MD5", contentMD5);
+		final Date now = new Date();
+		request.addHeader("Date", now);
+		setupAuthorizationHeader(request, createAuthorizationHeaderV2Value(TEST_AUTH_TOKEN,
+				TEST_PASSWORD, request, now, contentType));
 		filterChain.doFilter(anyObject(HttpServletRequest.class), same(response));
 		expect(userDetailsService.loadUserByUsername(TEST_AUTH_TOKEN)).andReturn(userDetails);
 		replay(filterChain, userDetailsService);
