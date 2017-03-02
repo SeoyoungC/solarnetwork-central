@@ -60,7 +60,13 @@ public class UserAuthTokenAuthenticationEntryPoint implements AuthenticationEntr
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException authException) throws IOException, ServletException {
-		response.addHeader("WWW-Authenticate", AuthenticationScheme.V1.getSchemeName());
+		final String authHeaderValue = request.getHeader("Authorization");
+		AuthenticationScheme authScheme = AuthenticationScheme.V2; // default to V2 unless a known V1 request
+		if ( authHeaderValue != null
+				&& authHeaderValue.startsWith(AuthenticationScheme.V1.getSchemeName()) ) {
+			authScheme = AuthenticationScheme.V1;
+		}
+		response.addHeader("WWW-Authenticate", authScheme.getSchemeName());
 		response.addHeader(WebConstants.HEADER_ERROR_MESSAGE, authException.getMessage());
 		if ( httpHeaders != null ) {
 			for ( Map.Entry<String, String> me : httpHeaders.entrySet() ) {
