@@ -168,7 +168,7 @@ public abstract class AuthenticationData {
 		}
 		if ( !Arrays.equals(computedDigest, providedDigest) ) {
 			throw new BadCredentialsException(
-					"Invalid content " + alg.getAlgorithmName() + " digest value");
+					"Content " + alg.getAlgorithmName() + " digest value mismatch");
 		}
 	}
 
